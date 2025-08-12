@@ -16,6 +16,18 @@ const CatalogItemSchema = new mongoose.Schema(
         format: { type: String },
       },
     ],
+    files: [
+      {
+        publicId: { type: String },
+        url: { type: String, required: true },
+        bytes: { type: Number },
+        format: { type: String },
+        resourceType: { type: String, enum: ['raw', 'image', 'video'], default: 'raw' },
+        pages: { type: Number }, // for PDFs
+        originalFilename: { type: String },
+        mimeType: { type: String },
+      },
+    ],
     categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CatalogCategory' }],
     tags: [{ type: String }],
     status: { type: String, enum: ['active', 'archived'], default: 'active' },

@@ -108,6 +108,32 @@ async function uploadImage(buffer, folder = 'crm/catalog') {
   })
 }
 
+// Upload raw file (e.g., PDF) to Cloudinary
+async function uploadFile(buffer, originalName, mimeType, folder = 'crm/catalog/files') {
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    throw new Error('Cloudinary is not fully configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET')
+  }
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder, resource_type: 'raw', filename_override: originalName, use_filename: true },
+      (err, result) => {
+        if (err) return reject(err)
+        resolve({
+          publicId: result.public_id,
+          url: result.secure_url,
+          bytes: result.bytes,
+          format: result.format,
+          resourceType: result.resource_type,
+          pages: result.pages, // may be present for PDFs
+          originalFilename: result.original_filename,
+          mimeType,
+        })
+      }
+    )
+    stream.end(buffer)
+  })
+}
+
 module.exports = {
   // categories
   createCategory,
@@ -122,4 +148,5 @@ module.exports = {
   deleteItem,
   // upload
   uploadImage,
+  uploadFile,
 }

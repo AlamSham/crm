@@ -112,6 +112,19 @@ async function uploadImage(req, res) {
   }
 }
 
+// Upload document (PDF or other raw files)
+async function uploadFile(req, res) {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, message: 'No file provided' })
+    }
+    const uploaded = await catalogService.uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype)
+    res.json({ success: true, data: uploaded })
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message })
+  }
+}
+
 module.exports = {
   // categories
   createCategory,
@@ -126,4 +139,5 @@ module.exports = {
   deleteItem,
   // uploads
   uploadImage,
+  uploadFile,
 }

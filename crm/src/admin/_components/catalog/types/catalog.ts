@@ -6,6 +6,17 @@ export interface CatalogImage {
   format?: string
 }
 
+export interface CatalogFile {
+  publicId?: string
+  url: string
+  bytes?: number
+  format?: string
+  resourceType?: 'raw' | 'image' | 'video'
+  pages?: number
+  originalFilename?: string
+  mimeType?: string
+}
+
 export interface CatalogItem {
   _id: string
   userId: string
@@ -14,6 +25,7 @@ export interface CatalogItem {
   price?: number
   url?: string
   images: CatalogImage[]
+  files?: CatalogFile[]
   categoryIds: string[]
   tags: string[]
   status: 'active' | 'archived'

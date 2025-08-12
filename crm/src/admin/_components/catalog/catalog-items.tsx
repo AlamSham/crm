@@ -10,12 +10,14 @@ export default function CatalogItems() {
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<{ title: string; url?: string; price?: string; image?: File; imagePreview?: string }>({ title: '' })
+  const [form, setForm] = useState<{ title: string; url?: string; price?: string; image?: File; imagePreview?: string; pdf?: File; pdfName?: string }>(
+    { title: '' }
+  )
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<CatalogItem | null>(null)
   const [editSaving, setEditSaving] = useState(false)
-  const [editForm, setEditForm] = useState<{ title: string; url?: string; price?: string; status: 'active' | 'archived'; image?: File; imagePreview?: string }>({ title: '', status: 'active' })
+  const [editForm, setEditForm] = useState<{ title: string; url?: string; price?: string; status: 'active' | 'archived'; image?: File; imagePreview?: string; pdf?: File; pdfName?: string }>({ title: '', status: 'active' })
 
   useEffect(() => {
     let mounted = true
@@ -125,6 +127,27 @@ export default function CatalogItems() {
                     className="block w-full text-sm text-gray-700"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Attach PDF (max 20MB)</label>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        if (file.size > 20 * 1024 * 1024) {
+                          setUploadError('PDF size must be <= 20MB')
+                          return
+                        }
+                        setEditForm((f) => ({ ...f, pdf: file, pdfName: file.name }))
+                      }
+                    }}
+                    className="block w-full text-sm text-gray-700"
+                  />
+                  {editForm.pdfName && (
+                    <div className="mt-1 text-xs text-gray-600">{editForm.pdfName}</div>
+                  )}
+                </div>
               </div>
               {(editForm.imagePreview) && (
                 <img src={editForm.imagePreview} className="mt-2 h-24 w-24 rounded object-cover" />
@@ -150,8 +173,12 @@ export default function CatalogItems() {
                   try {
                     setEditSaving(true)
                     let imagePayload: { publicId?: string; url: string; width?: number; height?: number; format?: string } | undefined
+                    let filePayload: any | undefined
                     if (editForm.image) {
                       imagePayload = await catalogApi.uploadImage(editForm.image)
+                    }
+                    if (editForm.pdf) {
+                      filePayload = await catalogApi.uploadFile(editForm.pdf)
                     }
                     const updated = await catalogApi.updateItem(editing._id!, {
                       title: editForm.title.trim(),
@@ -159,6 +186,7 @@ export default function CatalogItems() {
                       price: editForm.price ? Number(editForm.price) : undefined,
                       status: editForm.status,
                       ...(imagePayload ? { images: [imagePayload] } : {}),
+                      ...(filePayload ? { files: [filePayload] } : {}),
                     })
                     setItems((prev) => prev.map((p) => (p._id === updated._id ? updated : p)))
                     setEditOpen(false)
@@ -322,6 +350,27 @@ export default function CatalogItems() {
                   <img src={form.imagePreview} className="mt-2 h-24 w-24 rounded object-cover" />
                 )}
               </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Attach PDF (max 20MB)</label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      if (file.size > 20 * 1024 * 1024) {
+                        setUploadError('PDF size must be <= 20MB')
+                        return
+                      }
+                      setForm((f) => ({ ...f, pdf: file, pdfName: file.name }))
+                    }
+                  }}
+                  className="block w-full text-sm text-gray-700"
+                />
+                {form.pdfName && (
+                  <div className="mt-1 text-xs text-gray-600">{form.pdfName}</div>
+                )}
+              </div>
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
@@ -342,14 +391,19 @@ export default function CatalogItems() {
                   try {
                     setSaving(true)
                     let imagePayload: { publicId?: string; url: string; width?: number; height?: number; format?: string } | undefined
+                    let filePayload: any | undefined
                     if (form.image) {
                       imagePayload = await catalogApi.uploadImage(form.image)
+                    }
+                    if (form.pdf) {
+                      filePayload = await catalogApi.uploadFile(form.pdf)
                     }
                     const created = await catalogApi.createItem({
                       title: form.title.trim(),
                       url: form.url?.trim() || undefined,
                       price: form.price ? Number(form.price) : undefined,
                       images: imagePayload ? [imagePayload] : [],
+                      ...(filePayload ? { files: [filePayload] } : {}),
                       status: 'active',
                     })
                     // refresh list - prepend new item

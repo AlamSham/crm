@@ -1,4 +1,4 @@
-import type { CatalogItem, CatalogCategory, PaginationInfo } from '../types/catalog'
+import type { CatalogItem, CatalogCategory, PaginationInfo, CatalogFile } from '../types/catalog'
 
 // Helper to get adminId from localStorage (aligns with follow-up API)
 const getAdminId = (): string => {
@@ -99,5 +99,23 @@ export const catalogApi = {
     }
     const data = await res.json()
     return data.data as { publicId?: string; url: string; width?: number; height?: number; format?: string }
+  },
+
+  async uploadFile(file: File) {
+    const adminId = getAdminId()
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${API_URL}/api/catalog/upload/file`, {
+      method: 'POST',
+      body: form,
+      credentials: 'include',
+      headers: { 'X-Admin-ID': adminId },
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.message || `Upload failed: ${res.status}`)
+    }
+    const data = await res.json()
+    return data.data as CatalogFile
   },
 }
