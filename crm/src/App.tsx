@@ -1,0 +1,117 @@
+import { Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import Login from "./admin/login"; // Keep Login eager-loaded for faster auth load
+
+// Lazy loaded components
+const AdminLayout = lazy(() => import("./admin/_components/adminLayout"));
+const Dashboard = lazy(() => import("./admin/_components/Dashboard"));
+const CustomerEnquiryMangement = lazy(() =>
+  import("./admin/_components/CustomerEnquiryMangement")
+);
+const UserManagement = lazy(() =>
+  import("./admin/_components/UserManagement")
+);
+const CustomerProfileManagement = lazy(() =>
+  import("./admin/_components/CustomerProfileManagement")
+);
+const TemplateUpload = lazy(() =>
+  import("./admin/_components/TemplateUpload")
+);
+const AccessControl = lazy(() =>
+  import("./admin/_components/AccessControl")
+);
+const Reporting = lazy(() =>
+  import("./admin/_components/Reporting")
+);
+
+const MerchandiserLayout = lazy(() =>
+  import("./merchandiser/_components/MerchandiserLayout")
+);
+const MerchandiserDashboard = lazy(() =>
+  import("./merchandiser/_components/MerchandiserDashboard")
+);
+const Catalog = lazy(() =>
+  import("./merchandiser/_components/Catalog")
+);
+const Event = lazy(() =>
+  import("./merchandiser/_components/Event")
+);
+const Lead = lazy(() =>
+  import("./merchandiser/_components/Lead")
+);
+const Template = lazy(() =>
+  import("./merchandiser/_components/Template")
+);
+const Gmaillayout = lazy(() =>
+  import("./admin/_components/email/gmail-layout")
+);
+const FollowUpIndex = lazy(() =>
+  import("./admin/_components/follow-up/index")
+);
+
+export default function App() {
+  return (
+    <Suspense fallback={<div className="text-center mt-10">Loading...</div>}>
+      <Routes>
+        <Route path="/" element={<Login />} />
+
+        {/* Admin Routes with layout */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="dashboard" />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route
+            path="customer-enquiry-mangement"
+            element={<CustomerEnquiryMangement />}
+          />
+          <Route path="user-management" element={<UserManagement />} />
+          <Route
+            path="customer-profile-management"
+            element={<CustomerProfileManagement />}
+          />
+            <Route
+            path="template-Upload"
+            element={<TemplateUpload />}
+          />
+             <Route
+            path="access-Control"
+            element={< AccessControl />}
+          />
+             <Route
+            path="reporting"
+            element={< Reporting />}
+          />
+             <Route
+            path="gmaillayout"
+            element={< Gmaillayout />}
+          />
+             <Route
+            path="follow-ups"
+            element={< FollowUpIndex />}
+          />
+            
+        </Route>
+        
+        
+          <Route path="/merchandiser" element={<MerchandiserLayout />}>
+          <Route index element={<Navigate to="merchandiserDashboard" />} />
+          <Route path="merchandiserDashboard" element={<MerchandiserDashboard />} />
+          <Route
+            path="catlog"
+            element={<Catalog />}
+          />
+          <Route path="event" element={< Event />} />
+          <Route
+            path="lead"
+            element={<Lead />}
+          />
+            <Route
+            path="template"
+            element={<Template />}
+          />
+            
+        </Route>
+        
+      </Routes>
+    </Suspense>
+  );
+}

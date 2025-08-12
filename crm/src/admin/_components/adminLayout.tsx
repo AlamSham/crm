@@ -1,0 +1,236 @@
+import { useState, useEffect } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { 
+  FiGrid, FiUsers, FiMessageSquare, FiUser, FiSettings, 
+  FiChevronLeft, FiMenu, FiBell, FiSearch,
+  FiLogOut, FiHelpCircle, FiDatabase, FiUpload,
+   FiActivity, FiMail, FiLock,
+  FiLayers
+} from 'react-icons/fi';
+
+const AdminLayout = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const location = useLocation();
+
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location]);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const toggleMobileSidebar = () => {
+    setMobileSidebarOpen(!mobileSidebarOpen);
+  };
+
+  const navLinks = [
+    { name: 'Dashboard', icon: <FiGrid size={20} />, path: '/admin' },
+    { name: 'User Management', icon: <FiUsers size={20} />, path: '/admin/User-Management' },
+    { name: 'Customer Enquiry', icon: <FiMessageSquare size={20} />, path: '/admin/Customer-Enquiry-Mangement' },
+    { name: 'Customer Profiles', icon: <FiUser size={20} />, path: '/admin/Customer-Profile-Management' },
+    { name: 'Template Upload', icon: <FiUpload size={20} />, path: '/admin/template-Upload' },
+    { name: 'Access Control', icon: <FiLock size={20} />, path: '/admin/access-Control' },
+    { name: 'Reports', icon: <FiActivity size={20} />, path: '/admin/reporting' },
+    { name: 'Email', icon: <FiMail size={20} />, path: '/admin/gmaillayout' },
+    { name: 'Follow-ups', icon: <FiMessageSquare size={20} />, path: '/admin/follow-ups' },
+    // { name: 'Content', icon: <FiLayers size={20} />, path: '/admin/content' },
+    // { name: 'Database', icon: <FiDatabase size={20} />, path: '/admin/database' },
+    { name: 'Settings', icon: <FiSettings size={20} />, path: '/admin/settings' },
+  ];
+
+  const getPageTitle = () => {
+    const currentLink = navLinks.find(link => link.path === location.pathname);
+    return currentLink ? currentLink.name : 'Dashboard';
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Mobile sidebar backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
+          onClick={toggleMobileSidebar}
+        ></div>
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed z-30 h-screen bg-white shadow-lg transition-all duration-300 ease-in-out lg:relative ${
+          sidebarOpen ? 'w-64' : 'w-20'
+        } ${mobileSidebarOpen ? 'left-0' : '-left-full lg:left-0'}`}
+      >
+        <div className="flex h-full flex-col border-r border-gray-200">
+          {/* Sidebar header */}
+          <div className="flex h-16 items-center justify-between px-4">
+            {sidebarOpen ? (
+              <h1 className="text-xl font-bold text-indigo-600">AdminPro</h1>
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold">AP</div>
+            )}
+            <button
+              onClick={toggleSidebar}
+              className="hidden rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:block"
+              aria-label="Toggle sidebar"
+            >
+              <FiChevronLeft size={20} className={`transition-transform ${sidebarOpen ? '' : 'rotate-180'}`} />
+            </button>
+          </div>
+
+          {/* Sidebar content */}
+          <div className="flex-1 overflow-y-auto">
+            <nav className="px-2 py-4">
+              <ul className="space-y-1">
+                {navLinks.map((link) => (
+                  <li key={link.name}>
+                    <Link
+                      to={link.path}
+                      className={`group flex items-center rounded-lg p-3 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 ${
+                        location.pathname === link.path ? 'bg-indigo-50 text-indigo-600' : ''
+                      }`}
+                    >
+                      <span className="flex items-center justify-center">
+                        {link.icon}
+                      </span>
+                      {sidebarOpen && (
+                        <span className="ml-3 font-medium">{link.name}</span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>
+
+          {/* Sidebar footer */}
+          <div className="border-t border-gray-200 p-4">
+            <div className="flex items-center">
+              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">AU</div>
+              {sidebarOpen && (
+                <div className="ml-3 overflow-hidden">
+                  <p className="text-sm font-medium text-gray-700 truncate">Admin User</p>
+                  <p className="text-xs text-gray-500 truncate">admin@example.com</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Navbar */}
+        <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4">
+          <div className="flex items-center">
+            <button
+              onClick={toggleMobileSidebar}
+              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
+              aria-label="Open menu"
+            >
+              <FiMenu size={20} />
+            </button>
+            <h2 className="ml-4 text-lg font-semibold text-gray-800">
+              {getPageTitle()}
+            </h2>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <div className="relative hidden md:block">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="text-gray-400" size={18} />
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                placeholder="Search..."
+              />
+            </div>
+            
+            <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 relative">
+              <FiBell size={20} />
+              <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+            </button>
+            
+            <div className="relative">
+              <button 
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                className="flex items-center space-x-2 focus:outline-none"
+              >
+                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">AU</div>
+                <span className="hidden text-sm font-medium text-gray-700 md:block">
+                  Admin User
+                </span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-gray-500"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+              
+              {userDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                  <a
+                    href="#"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center">
+                      <FiUser className="mr-2" size={16} />
+                      Profile
+                    </div>
+                  </a>
+                  <a
+                    href="#"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center">
+                      <FiSettings className="mr-2" size={16} />
+                      Settings
+                    </div>
+                  </a>
+                  <a
+                    href="#"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center">
+                      <FiHelpCircle className="mr-2" size={16} />
+                      Help
+                    </div>
+                  </a>
+                  <div className="border-t border-gray-200 my-1"></div>
+                  <a
+                    href="#"
+                    className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center">
+                      <FiLogOut className="mr-2" size={16} />
+                      Sign out
+                    </div>
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Main content area */}
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6">
+          <div className="max-w-7xl mx-auto">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default AdminLayout;
