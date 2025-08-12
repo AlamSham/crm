@@ -176,3 +176,32 @@ export interface CreateContactListData {
   contacts?: string[]
   totalContacts?: number
 } 
+
+// Additional types used by email follow-up API
+export interface FollowUpSequence {
+  name: string
+  steps: Array<{
+    delayHours: number
+    templateId: string
+  }>
+}
+
+export interface FollowUpStats {
+  total: number
+  pending: number
+  sent: number
+  opened: number
+  clicked: number
+  bounced: number
+  overdue?: number
+}
+
+// Reuse generic API response/pagination types for compatibility
+export type FollowUpResponse = ApiResponse<any>
+export type FollowUpPagination = PaginationInfo
+
+export interface SchedulerStatus {
+  running: boolean
+  lastRunAt?: string
+  nextRunAt?: string
+}

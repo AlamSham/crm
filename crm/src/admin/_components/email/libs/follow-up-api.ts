@@ -5,9 +5,9 @@ import type {
   FollowUpResponse, 
   FollowUpPagination,
   SchedulerStatus 
-} from '../types/follow-up'
+} from '../../follow-up/types/follow-up'
 
-const API_BASE_URL = 'http://localhost:5000/api/follow-ups'
+const API_BASE_URL = 'https://crm-e68t.onrender.com/api/follow-ups'
 
 class FollowUpApiService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

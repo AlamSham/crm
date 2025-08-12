@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-http://localhost:5000/api/followup
+https://crm-e68t.onrender.com/api/followup
 ```
 
 ## Authentication

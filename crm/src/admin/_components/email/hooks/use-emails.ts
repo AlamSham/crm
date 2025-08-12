@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import type { ApiResponse, EmailThread } from "../types/email"
 
 // Prefer Vite env for API base; fallback to localhost for dev
-const API_BASE_URL = `${import.meta.env.VITE_API_URL ?? "http://localhost:5000"}/api/emails`
+const API_BASE_URL = `${import.meta.env.VITE_API_URL ?? "https://crm-e68t.onrender.com"}/api/emails`
 
 export type MailboxType = "all" | "sent" | "received" | "spam"
 
@@ -282,7 +282,7 @@ export function useEmails() {
 
   // Listen to Server-Sent Events for lightweight realtime updates
   useEffect(() => {
-    const streamUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:5000"}/api/emails/stream`
+    const streamUrl = `${import.meta.env.VITE_API_URL ?? "https://crm-e68t.onrender.com"}/api/emails/stream`
     const es = new EventSource(streamUrl, { withCredentials: true })
 
     const handleEmailNew = (payloadStr: string) => {
