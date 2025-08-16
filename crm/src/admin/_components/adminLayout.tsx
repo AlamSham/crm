@@ -30,9 +30,11 @@ const AdminLayout = () => {
   const navLinks = [
     { name: 'Dashboard', icon: <FiGrid size={20} />, path: '/admin' },
     { name: 'User Management', icon: <FiUsers size={20} />, path: '/admin/User-Management' },
-    { name: 'Customer Enquiry', icon: <FiMessageSquare size={20} />, path: '/admin/Customer-Enquiry-Mangement' },
     { name: 'Customer Profiles', icon: <FiUser size={20} />, path: '/admin/Customer-Profile-Management' },
-    { name: 'Template Upload', icon: <FiUpload size={20} />, path: '/admin/template-Upload' },
+    { name: 'Customer Enquiry', icon: <FiMessageSquare size={20} />, path: '/admin/Customer-Enquiry-Mangement' },
+
+
+    // { name: 'Template Upload', icon: <FiUpload size={20} />, path: '/admin/template-Upload' },
     { name: 'Access Control', icon: <FiLock size={20} />, path: '/admin/access-Control' },
     { name: 'Reports', icon: <FiActivity size={20} />, path: '/admin/reporting' },
     { name: 'Email', icon: <FiMail size={20} />, path: '/admin/gmaillayout' },

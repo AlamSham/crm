@@ -6,6 +6,12 @@ exports.errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let message = err.message || 'Internal Server Error';
 
+  // Multer file size limit
+  if (err && (err.code === 'LIMIT_FILE_SIZE' || /file too large/i.test(err.message))) {
+    statusCode = 413; // Payload Too Large
+    message = 'File too large. Maximum allowed size is 5MB.';
+  }
+
   // Mongoose Duplicate Key Error
   if (err.code === 11000) {
     statusCode = 400;

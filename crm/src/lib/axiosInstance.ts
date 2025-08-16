@@ -1,7 +1,7 @@
 import axios from "axios"
 import useAuthStore from "../store/useAuthStore"
 
-const baseURL = "https://crm-e68t.onrender.com/api/admin"
+const baseURL = "http://localhost:5000/api/admin"
 
 const axiosInstance = axios.create({
   baseURL,

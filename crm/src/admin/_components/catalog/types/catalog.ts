@@ -23,7 +23,6 @@ export interface CatalogItem {
   title: string
   description?: string
   price?: number
-  url?: string
   images: CatalogImage[]
   files?: CatalogFile[]
   categoryIds: string[]

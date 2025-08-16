@@ -23,6 +23,9 @@ const AccessControl = lazy(() =>
 const Reporting = lazy(() =>
   import("./admin/_components/Reporting")
 );
+const Settings = lazy(() =>
+  import("./admin/_components/Settings")
+);
 
 const MerchandiserLayout = lazy(() =>
   import("./merchandiser/_components/MerchandiserLayout")
@@ -79,6 +82,10 @@ export default function App() {
              <Route
             path="reporting"
             element={< Reporting />}
+          />
+             <Route
+            path="settings"
+            element={< Settings />}
           />
              <Route
             path="gmaillayout"

@@ -6,7 +6,6 @@ const CatalogItemSchema = new mongoose.Schema(
     title: { type: String, required: true },
     description: { type: String, default: '' },
     price: { type: Number },
-    url: { type: String },
     images: [
       {
         publicId: { type: String },

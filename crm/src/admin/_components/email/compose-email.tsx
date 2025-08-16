@@ -41,9 +41,14 @@ interface ComposeEmailProps {
     references?: string
     originalText?: string
   }
+  prefill?: {
+    to?: string
+    subject?: string
+    text?: string
+  }
 }
 
-export default function ComposeEmail({ isOpen, onClose, replyTo }: ComposeEmailProps) {
+export default function ComposeEmail({ isOpen, onClose, replyTo, prefill }: ComposeEmailProps) {
   const { sendEmail, replyToEmail } = useEmailContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -69,7 +74,7 @@ export default function ComposeEmail({ isOpen, onClose, replyTo }: ComposeEmailP
     }
   }, [formData.text])
 
-  // Add this useEffect after the existing useEffect
+  // Sync when replyTo or prefill changes
   useEffect(() => {
     if (replyTo) {
       setFormData({
@@ -79,16 +84,17 @@ export default function ComposeEmail({ isOpen, onClose, replyTo }: ComposeEmailP
         subject: replyTo.subject,
         text: replyTo.originalText || "",
       })
-    } else {
-      setFormData({
-        to: "",
-        cc: "",
-        bcc: "",
-        subject: "",
-        text: "",
-      })
+      return
     }
-  }, [replyTo])
+    // Apply prefill if provided
+    setFormData({
+      to: prefill?.to || "",
+      cc: "",
+      bcc: "",
+      subject: prefill?.subject || "",
+      text: prefill?.text || "",
+    })
+  }, [replyTo, prefill])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

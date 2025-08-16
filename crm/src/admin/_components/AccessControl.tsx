@@ -1,6 +1,7 @@
-import { Card, Table, Tag, Button, Space, Modal, Form, Input, Select, Switch } from 'antd';
-import { SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { Card, Table, Tag, Button, Space, Modal, Form, Input, Select, Switch, Avatar, message } from 'antd';
+import { SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined, MailOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
+import { useEffect, useMemo, useState } from 'react';
+import { useUsers } from '@/admin/_components/hooks/useUsers';
 
 const { Option } = Select;
 
@@ -8,31 +9,36 @@ const AccessControl = () => {
   const [form] = Form.useForm();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const rolesData = [
-    {
-      key: '1',
-      role: 'Super Admin',
-      permissions: ['All'],
-      users: 1,
-      status: true,
-    },
-    {
-      key: '2',
-      role: 'Merchandiser',
-      permissions: ['Leads', 'Templates', 'Events'],
-      users: 5,
-      status: true,
-    },
-    {
-      key: '3',
-      role: 'Sales',
-      permissions: ['Leads', 'Customers'],
-      users: 3,
-      status: false,
-    },
-  ];
+  // Users state from store
+  const { rows, loading, fetchUsers, grantEmailAccess, revokeEmailAccess, grantFollowUp, revokeFollowUp } = useUsers();
+  // Local search state (decoupled from global store)
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    fetchUsers().catch(() => message.error('Users fetch failed'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const columns = [
+    {
+      title: 'Name',
+      dataIndex: 'user',
+      key: 'name',
+      render: (_: any, record: any) => (
+        <Space>
+          <Avatar src={record.user?.avatar} icon={!record.user?.avatar ? <UserOutlined /> : undefined} />
+          <div style={{ fontWeight: 600 }}>{record.user?.name}</div>
+        </Space>
+      ),
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
+      render: (_: any, record: any) => (
+        <span style={{ color: '#555' }}>{record.user?.email}</span>
+      ),
+    },
     {
       title: 'Role',
       dataIndex: 'role',
@@ -40,46 +46,67 @@ const AccessControl = () => {
       render: (text: string) => <strong>{text}</strong>,
     },
     {
-      title: 'Permissions',
-      dataIndex: 'permissions',
-      key: 'permissions',
-      render: (permissions: string[]) => (
-        <div style={{ maxWidth: 300 }}>
-          {permissions.map((perm, index) => (
-            <Tag key={index} color="blue" style={{ marginBottom: 4 }}>{perm}</Tag>
-          ))}
-        </div>
-      ),
-    },
-    {
-      title: 'Users',
-      dataIndex: 'users',
-      key: 'users',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: boolean) => (
-        <Switch 
-          checked={status} 
-          checkedChildren="Active" 
-          unCheckedChildren="Inactive"
-          style={{ backgroundColor: status ? 'black' : undefined }}
+      title: 'Email Access',
+      dataIndex: 'isEmailAccess',
+      key: 'isEmailAccess',
+      render: (_: any, record: any) => (
+        <Switch
+          checked={!!record.isEmailAccess}
+          checkedChildren="Enabled"
+          unCheckedChildren="Disabled"
+          onChange={async (checked) => {
+            if (checked) {
+              const res = await grantEmailAccess(record.key)
+              if (res) message.success('Email access enabled')
+              else message.error('Failed to enable email access')
+            } else {
+              const res = await revokeEmailAccess(record.key)
+              if (res) message.success('Email access disabled')
+              else message.error('Failed to disable email access')
+            }
+          }}
+          style={{ backgroundColor: record.isEmailAccess ? 'black' : undefined }}
         />
       ),
     },
     {
-      title: 'Actions',
-      key: 'actions',
-      render: () => (
-        <Space>
-          <Button icon={<EditOutlined />} style={{ color: 'black' }}>Edit</Button>
-          <Button danger icon={<DeleteOutlined />}>Delete</Button>
-        </Space>
+      title: 'Follow-up Access',
+      dataIndex: 'isFollowUpPerson',
+      key: 'isFollowUpPerson',
+      render: (_: any, record: any) => (
+        <Switch
+          checked={!!record.isFollowUpPerson}
+          checkedChildren="Enabled"
+          unCheckedChildren="Disabled"
+          onChange={async (checked) => {
+            if (checked) {
+              const res = await grantFollowUp(record.key)
+              if (res) message.success('Follow-up access enabled')
+              else message.error('Failed to enable follow-up access')
+            } else {
+              const res = await revokeFollowUp(record.key)
+              if (res) message.success('Follow-up access disabled')
+              else message.error('Failed to disable follow-up access')
+            }
+          }}
+          style={{ backgroundColor: record.isFollowUpPerson ? 'black' : undefined }}
+        />
       ),
     },
-  ];
+  ] as any
+
+  // Client-side filtered rows (name/email/role)
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((r: any) => {
+      return (
+        r.user?.name?.toLowerCase().includes(q) ||
+        r.user?.email?.toLowerCase().includes(q) ||
+        String(r.role || '').toLowerCase().includes(q)
+      )
+    })
+  }, [rows, search])
 
   const showModal = () => {
     setIsModalVisible(true);
@@ -103,69 +130,26 @@ const AccessControl = () => {
       extra={
         <Space>
           <Input 
-            placeholder="Search roles..." 
+            placeholder="Search users..." 
             prefix={<SearchOutlined />} 
             style={{ width: 200 }} 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={showModal}
-            style={{ background: 'black', borderColor: 'black' }}
-          >
-            Add New Role
-          </Button>
+          {/* Optional future: Add Role Modal retained */}
         </Space>
       }
     >
-      <Table 
-        columns={columns} 
-        dataSource={rolesData} 
+      <Table
+        columns={columns}
+        dataSource={filteredRows}
+        loading={loading}
+        rowKey={(r) => r.key}
         bordered
-        pagination={{ pageSize: 5 }}
+        pagination={{ pageSize: 10 }}
       />
 
-      <Modal 
-        title="Add New Role" 
-        visible={isModalVisible} 
-        onOk={handleOk} 
-        onCancel={handleCancel}
-        okButtonProps={{ style: { background: 'black', borderColor: 'black' } }}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="roleName"
-            label="Role Name"
-            rules={[{ required: true, message: 'Please input role name!' }]}
-          >
-            <Input placeholder="e.g. Inventory Manager" />
-          </Form.Item>
-
-          <Form.Item
-            name="permissions"
-            label="Permissions"
-            rules={[{ required: true, message: 'Please select permissions!' }]}
-          >
-            <Select mode="multiple" placeholder="Select permissions">
-              <Option value="Dashboard">Dashboard</Option>
-              <Option value="Customers">Customers</Option>
-              <Option value="Products">Products</Option>
-              <Option value="Orders">Orders</Option>
-              <Option value="Templates">Templates</Option>
-              <Option value="Reports">Reports</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="status"
-            label="Status"
-            valuePropName="checked"
-            initialValue={true}
-          >
-            <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
-          </Form.Item>
-        </Form>
-      </Modal>
+      {/* Modal kept for future role creation if needed */}
     </Card>
   );
 };

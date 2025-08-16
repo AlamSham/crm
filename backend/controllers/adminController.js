@@ -65,7 +65,8 @@ exports.refreshToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
-    const accessToken = generateAccessToken(decoded.userId);
+    // Ensure refreshed access token includes role so middleware authorizes admin
+    const accessToken = generateAccessToken(decoded.userId, decoded.role || 'admin');
 
     return res.status(200).json({ accessToken });
   } catch (err) {
@@ -86,6 +87,48 @@ exports.getProfile = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+// Update admin profile (name, email)
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const { name, email } = req.body;
+
+    const admin = await Admin.findById(req.userId);
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+
+    if (email && email !== admin.email) {
+      const exists = await Admin.findOne({ email });
+      if (exists) return res.status(400).json({ message: 'Email already in use' });
+      admin.email = email;
+    }
+    if (name) admin.name = name;
+
+    await admin.save();
+    const safe = admin.toObject();
+    delete safe.password;
+    res.status(200).json({ message: 'Profile updated', admin: safe });
+  } catch (err) { next(err); }
+};
+
+// Change password
+exports.changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current and new password required' });
+    }
+
+    const admin = await Admin.findById(req.userId);
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+
+    const ok = await admin.comparePassword(currentPassword);
+    if (!ok) return res.status(400).json({ message: 'Current password is incorrect' });
+
+    admin.password = newPassword; // assume pre-save hook hashes it
+    await admin.save();
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (err) { next(err); }
 };
 
 // Logout admin

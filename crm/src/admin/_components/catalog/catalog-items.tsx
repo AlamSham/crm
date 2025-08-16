@@ -10,14 +10,16 @@ export default function CatalogItems() {
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<{ title: string; url?: string; price?: string; image?: File; imagePreview?: string; pdf?: File; pdfName?: string }>(
+  const [form, setForm] = useState<{ title: string; price?: string; image?: File; imagePreview?: string; pdf?: File; pdfName?: string }>(
     { title: '' }
   )
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<CatalogItem | null>(null)
   const [editSaving, setEditSaving] = useState(false)
-  const [editForm, setEditForm] = useState<{ title: string; url?: string; price?: string; status: 'active' | 'archived'; image?: File; imagePreview?: string; pdf?: File; pdfName?: string }>({ title: '', status: 'active' })
+  const [editForm, setEditForm] = useState<{ title: string; price?: string; status: 'active' | 'archived'; image?: File; imagePreview?: string; pdf?: File; pdfName?: string }>({ title: '', status: 'active' })
+  const [formUploadType, setFormUploadType] = useState<'image' | 'pdf'>('image')
+  const [editUploadType, setEditUploadType] = useState<'image' | 'pdf'>('image')
 
   useEffect(() => {
     let mounted = true
@@ -80,26 +82,15 @@ export default function CatalogItems() {
                   placeholder="Product title"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Price</label>
-                  <input
-                    type="number"
-                    value={editForm.price || ''}
-                    onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g. 999"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">URL</label>
-                  <input
-                    value={editForm.url || ''}
-                    onChange={(e) => setEditForm((f) => ({ ...f, url: e.target.value }))}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="https://example.com"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Price</label>
+                <input
+                  type="number"
+                  value={editForm.price || ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g. 999"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3 items-end">
                 <div>
@@ -114,6 +105,15 @@ export default function CatalogItems() {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium mb-1">Upload Type</label>
+                  <div className="flex gap-3 text-sm">
+                    <label className="inline-flex items-center gap-1"><input type="radio" name="edit-upload-type" checked={editUploadType==='image'} onChange={() => { setEditUploadType('image'); setEditForm((f)=>({ ...f, pdf: undefined, pdfName: undefined })) }} /> Image</label>
+                    <label className="inline-flex items-center gap-1"><input type="radio" name="edit-upload-type" checked={editUploadType==='pdf'} onChange={() => { setEditUploadType('pdf'); setEditForm((f)=>({ ...f, image: undefined, imagePreview: undefined })) }} /> PDF</label>
+                  </div>
+                </div>
+              </div>
+              {editUploadType === 'image' ? (
+                <div>
                   <label className="block text-sm font-medium mb-1">Replace Image</label>
                   <input
                     type="file"
@@ -121,25 +121,26 @@ export default function CatalogItems() {
                     onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (file) {
-                        setEditForm((f) => ({ ...f, image: file, imagePreview: URL.createObjectURL(file) }))
+                        setEditForm((f) => ({ ...f, image: file, imagePreview: URL.createObjectURL(file), pdf: undefined, pdfName: undefined }))
                       }
                     }}
                     className="block w-full text-sm text-gray-700"
                   />
                 </div>
+              ) : (
                 <div>
-                  <label className="block text-sm font-medium mb-1">Attach PDF (max 20MB)</label>
+                  <label className="block text-sm font-medium mb-1">Attach PDF (max 10MB)</label>
                   <input
                     type="file"
                     accept="application/pdf"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (file) {
-                        if (file.size > 20 * 1024 * 1024) {
-                          setUploadError('PDF size must be <= 20MB')
+                        if (file.size > 10 * 1024 * 1024) {
+                          setUploadError('PDF size must be <= 10MB')
                           return
                         }
-                        setEditForm((f) => ({ ...f, pdf: file, pdfName: file.name }))
+                        setEditForm((f) => ({ ...f, pdf: file, pdfName: file.name, image: undefined, imagePreview: undefined }))
                       }
                     }}
                     className="block w-full text-sm text-gray-700"
@@ -148,7 +149,7 @@ export default function CatalogItems() {
                     <div className="mt-1 text-xs text-gray-600">{editForm.pdfName}</div>
                   )}
                 </div>
-              </div>
+              )}
               {(editForm.imagePreview) && (
                 <img src={editForm.imagePreview} className="mt-2 h-24 w-24 rounded object-cover" />
               )}
@@ -182,7 +183,6 @@ export default function CatalogItems() {
                     }
                     const updated = await catalogApi.updateItem(editing._id!, {
                       title: editForm.title.trim(),
-                      url: editForm.url?.trim() || undefined,
                       price: editForm.price ? Number(editForm.price) : undefined,
                       status: editForm.status,
                       ...(imagePayload ? { images: [imagePayload] } : {}),
@@ -234,9 +234,6 @@ export default function CatalogItems() {
                   </td>
                   <td className="p-2">
                     <div className="font-medium">{it.title}</div>
-                    {it.url && (
-                      <a href={it.url} target="_blank" className="text-xs text-blue-600 underline">Open link</a>
-                    )}
                   </td>
                   <td className="p-2">{it.price ?? '-'}</td>
                   <td className="p-2">
@@ -252,11 +249,11 @@ export default function CatalogItems() {
                           setEditing(it)
                           setEditForm({
                             title: it.title || '',
-                            url: it.url || '',
                             price: typeof it.price === 'number' ? String(it.price) : '',
                             status: (it.status as 'active' | 'archived') || 'active',
                             imagePreview: it.images?.[0]?.url,
                           })
+                          setEditUploadType((it.files && it.files.length > 0) ? 'pdf' : 'image')
                           setEditOpen(true)
                         }}
                         className="px-2 py-1 rounded border text-xs"
@@ -312,63 +309,62 @@ export default function CatalogItems() {
                   placeholder="Product title"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Price</label>
-                  <input
-                    type="number"
-                    value={form.price || ''}
-                    onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g. 999"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">URL</label>
-                  <input
-                    value={form.url || ''}
-                    onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="https://example.com"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Price</label>
+                <input
+                  type="number"
+                  value={form.price || ''}
+                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g. 999"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) {
-                      setForm((f) => ({ ...f, image: file, imagePreview: URL.createObjectURL(file) }))
-                    }
-                  }}
-                  className="block w-full text-sm text-gray-700"
-                />
-                {form.imagePreview && (
-                  <img src={form.imagePreview} className="mt-2 h-24 w-24 rounded object-cover" />
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Attach PDF (max 20MB)</label>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) {
-                      if (file.size > 20 * 1024 * 1024) {
-                        setUploadError('PDF size must be <= 20MB')
-                        return
-                      }
-                      setForm((f) => ({ ...f, pdf: file, pdfName: file.name }))
-                    }
-                  }}
-                  className="block w-full text-sm text-gray-700"
-                />
-                {form.pdfName && (
-                  <div className="mt-1 text-xs text-gray-600">{form.pdfName}</div>
+                <label className="block text-sm font-medium mb-1">Upload Type</label>
+                <div className="flex gap-3 text-sm mb-2">
+                  <label className="inline-flex items-center gap-1"><input type="radio" name="create-upload-type" checked={formUploadType==='image'} onChange={() => { setFormUploadType('image'); setForm((f)=>({ ...f, pdf: undefined, pdfName: undefined })) }} /> Image</label>
+                  <label className="inline-flex items-center gap-1"><input type="radio" name="create-upload-type" checked={formUploadType==='pdf'} onChange={() => { setFormUploadType('pdf'); setForm((f)=>({ ...f, image: undefined, imagePreview: undefined })) }} /> PDF</label>
+                </div>
+                {formUploadType === 'image' ? (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Image</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          setForm((f) => ({ ...f, image: file, imagePreview: URL.createObjectURL(file), pdf: undefined, pdfName: undefined }))
+                        }
+                      }}
+                      className="block w-full text-sm text-gray-700"
+                    />
+                    {form.imagePreview && (
+                      <img src={form.imagePreview} className="mt-2 h-24 w-24 rounded object-cover" />
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Attach PDF (max 10MB)</label>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          if (file.size > 10 * 1024 * 1024) {
+                            setUploadError('PDF size must be <= 10MB')
+                            return
+                          }
+                          setForm((f) => ({ ...f, pdf: file, pdfName: file.name, image: undefined, imagePreview: undefined }))
+                        }
+                      }}
+                      className="block w-full text-sm text-gray-700"
+                    />
+                    {form.pdfName && (
+                      <div className="mt-1 text-xs text-gray-600">{form.pdfName}</div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -400,7 +396,6 @@ export default function CatalogItems() {
                     }
                     const created = await catalogApi.createItem({
                       title: form.title.trim(),
-                      url: form.url?.trim() || undefined,
                       price: form.price ? Number(form.price) : undefined,
                       images: imagePayload ? [imagePayload] : [],
                       ...(filePayload ? { files: [filePayload] } : {}),

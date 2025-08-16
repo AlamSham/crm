@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Eye, EyeOff, Lock, Mail, Building2 } from "lucide-react"
 import axiosInstance from "../lib/axiosInstance"
-import useAuthStore from "../store/useAuthStore" // ✅ Import Zustand store
+import useAuthStore from "./_components/types/useAuthStore" // ✅ Import Zustand store
 
 export default function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" })

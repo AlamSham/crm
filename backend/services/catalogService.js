@@ -29,13 +29,17 @@ async function deleteCategory(userId, id) {
 
 // Items
 async function createItem(userId, data) {
+  // Enforce mutual exclusivity: either images or files, not both
+  if (Array.isArray(data.images) && data.images.length > 0 && Array.isArray(data.files) && data.files.length > 0) {
+    throw new Error('Provide either an image or a file, not both')
+  }
   const item = new CatalogItem({
     userId,
     title: data.title,
     description: data.description || '',
     price: data.price,
-    url: data.url,
     images: data.images || [],
+    files: data.files || [],
     categoryIds: data.categoryIds || [],
     tags: data.tags || [],
     status: data.status || 'active',
@@ -74,6 +78,10 @@ async function getItemById(userId, id) {
 }
 
 async function updateItem(userId, id, data) {
+  // Enforce mutual exclusivity on update if both provided in payload
+  if (Array.isArray(data.images) && data.images.length > 0 && Array.isArray(data.files) && data.files.length > 0) {
+    throw new Error('Provide either an image or a file, not both')
+  }
   const item = await CatalogItem.findOneAndUpdate({ _id: id, userId }, data, { new: true })
   if (!item) throw new Error('Item not found')
   return item

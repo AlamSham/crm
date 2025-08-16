@@ -24,7 +24,7 @@ export const useEmailContext = (): EmailContextType => {
 }
 
 // Email Provider Component
-function EmailProvider({ children }: { children: React.ReactNode }) {
+export function EmailProvider({ children }: { children: React.ReactNode }) {
   const emailState = useEmails()
   
   return (

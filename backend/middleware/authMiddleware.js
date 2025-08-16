@@ -30,6 +30,7 @@ exports.verifyAccessToken = async (req, res, next) => {
     req.role = decoded.role;
     next();
   } catch (err) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
+    // Return 401 so clients can refresh access token automatically
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
