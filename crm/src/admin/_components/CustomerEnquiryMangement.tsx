@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Table, Tag, Input, Button, Space, Badge, Drawer, Descriptions, message, Modal, Form, Select, Popconfirm, Tooltip } from 'antd';
-import { SearchOutlined, MailOutlined, EyeOutlined, UserAddOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Input, Button, Space, Badge, Drawer, Descriptions, message, Modal, Form, Select, Popconfirm, Tooltip, Dropdown, Upload } from 'antd';
+import { SearchOutlined, MailOutlined, EyeOutlined, UserAddOutlined, EditOutlined, DeleteOutlined, MoreOutlined, UploadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'
 import { useEnquiries } from '@/admin/_components/hooks/useEnquiries'
 import type { CustomerEnquiry } from '@/admin/_components/types/enquiry'
@@ -26,6 +26,7 @@ const CustomerEnquiryManagement = () => {
   // Email compose state
   const [composeOpen, setComposeOpen] = useState(false)
   const [composePrefill, setComposePrefill] = useState<{ to?: string; subject?: string; text?: string } | undefined>(undefined)
+  const [bulkUploading, setBulkUploading] = useState(false)
 
   useEffect(() => {
     fetch().catch(() => message.error('Failed to load enquiries'))
@@ -126,40 +127,42 @@ const CustomerEnquiryManagement = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 360,
+      width: 80,
       fixed: 'right',
-      render: (_, r) => (
-        <Space wrap size={[8, 8]}>
-          <Button 
-            type="primary" 
-            icon={<MailOutlined />} 
-            style={{ background: 'black', borderColor: 'black' }}
-            onClick={() => {
-              if (!r.email) {
-                message.info('No email')
-                return
-              }
-              // Prefill email compose
-              const subj = r.products && r.products.length
-                ? `Regarding your enquiry about ${r.products[0]}`
-                : `Regarding your enquiry`
-              const body = `Hi ${r.name || ''},\n\n` +
-                `Thanks for your enquiry${r.products?.length ? ` about ${r.products.join(', ')}` : ''}.` +
-                `\nPlease let us know a suitable time to connect.`
-              setComposePrefill({ to: r.email, subject: subj, text: body })
-              setComposeOpen(true)
-            }}
-          >
-            Respond
-          </Button>
-          <Button icon={<EyeOutlined />} style={{ color: 'black', borderColor: 'black' }} onClick={()=>{ setViewed(r); setViewOpen(true) }}>View</Button>
-          <Button icon={<UserAddOutlined />} onClick={async()=>{
+      render: (_, r) => {
+        const items = [
+          { key: 'respond', icon: <MailOutlined />, label: 'Respond' },
+          { key: 'view', icon: <EyeOutlined />, label: 'View' },
+          { key: 'convert', icon: <UserAddOutlined />, label: 'Convert' },
+          { key: 'edit', icon: <EditOutlined />, label: 'Edit' },
+          { key: 'delete', icon: <DeleteOutlined />, label: 'Delete', danger: true },
+        ] as any
+
+        const handleMenuClick = async ({ key }: { key: string }) => {
+          if (key === 'respond') {
+            if (!r.email) {
+              message.info('No email')
+              return
+            }
+            const subj = r.products && r.products.length
+              ? `Regarding your enquiry about ${r.products[0]}`
+              : `Regarding your enquiry`
+            const body = `Hi ${r.name || ''},\n\n` +
+              `Thanks for your enquiry${r.products?.length ? ` about ${r.products.join(', ')}` : ''}.` +
+              `\nPlease let us know a suitable time to connect.`
+            setComposePrefill({ to: r.email, subject: subj, text: body })
+            setComposeOpen(true)
+          }
+          if (key === 'view') {
+            setViewed(r); setViewOpen(true)
+          }
+          if (key === 'convert') {
             const res = await convert(r._id)
             if (res?.customer?._id) message.success('Converted to customer')
             else if (res) message.success('Converted')
             else message.error('Convert failed')
-          }}>Convert</Button>
-          <Button icon={<EditOutlined />} onClick={()=>{
+          }
+          if (key === 'edit') {
             setEditing(r)
             form.setFieldsValue({
               name: r.name,
@@ -172,16 +175,27 @@ const CustomerEnquiryManagement = () => {
             })
             setSelectedCustomerId((r as any).linkedCustomerId || undefined)
             setCreateOpen(true)
-          }}>Edit</Button>
-          <Popconfirm title="Delete this enquiry?" okText="Delete" okButtonProps={{ danger: true }} onConfirm={async()=>{
-            const ok = await remove(r._id)
-            if (ok) message.success('Enquiry deleted')
-            else message.error('Delete failed')
-          }}>
-            <Button danger icon={<DeleteOutlined />}>Delete</Button>
-          </Popconfirm>
-        </Space>
-      ),
+          }
+          if (key === 'delete') {
+            Modal.confirm({
+              title: 'Delete this enquiry?',
+              okText: 'Delete',
+              okButtonProps: { danger: true },
+              onOk: async () => {
+                const ok = await remove(r._id)
+                if (ok) message.success('Enquiry deleted')
+                else message.error('Delete failed')
+              },
+            })
+          }
+        }
+
+        return (
+          <Dropdown menu={{ items, onClick: handleMenuClick }} trigger={[ 'click' ]} placement="bottomRight">
+            <Button icon={<MoreOutlined />} />
+          </Dropdown>
+        )
+      },
     },
   ];
 
@@ -198,6 +212,50 @@ const CustomerEnquiryManagement = () => {
             value={search}
             onChange={(e)=> setSearch(e.target.value)}
           />
+          <Upload
+            accept=".xlsx,.xls"
+            showUploadList={false}
+            beforeUpload={async (file) => {
+              try {
+                setBulkUploading(true)
+                const { default: XLSX } = await import('xlsx')
+                const data = await file.arrayBuffer()
+                const wb = XLSX.read(data, { type: 'array' })
+                const ws = wb.Sheets[wb.SheetNames[0]]
+                const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+                // Expect headers: name, email, phone, products, priority, status, notes
+                let success = 0, failed = 0
+                for (const row of rows) {
+                  try {
+                    const payload = {
+                      name: row.name || row.Name || '',
+                      email: row.email || row.Email || undefined,
+                      phone: row.phone || row.Phone || undefined,
+                      products: typeof row.products === 'string' ? row.products.split(',').map((s:string)=>s.trim()).filter(Boolean) : (row.products || row.Products || []),
+                      priority: row.priority || row.Priority || 'Medium',
+                      status: row.status || row.Status || 'New',
+                      notes: row.notes || row.Notes || '',
+                    }
+                    if (!payload.name) { failed++; continue }
+                    const created = await (await import('@/admin/_components/services/enquiryService')).enquiryService.create(payload)
+                    if (created?._id) success++; else failed++
+                  } catch {
+                    failed++
+                  }
+                }
+                await fetch()
+                Modal.info({ title: 'Bulk upload summary', content: `Success: ${success}, Failed: ${failed}` })
+              } catch (e) {
+                message.error('Failed to process file')
+              } finally {
+                setBulkUploading(false)
+              }
+              return false // prevent auto upload
+            }}
+          >
+            <Button loading={bulkUploading} icon={<UploadOutlined />}>Bulk Upload (Excel)</Button>
+          </Upload>
           <Button type="primary" onClick={()=>{ setEditing(null); setSelectedCustomerId(undefined); form.resetFields(); setCreateOpen(true) }} style={{ background:'black', borderColor:'black' }}>New Enquiry</Button>
         </Space>
       }

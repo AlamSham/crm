@@ -22,8 +22,19 @@ const PORT = process.env.PORT || 5000;
 // app.use('/api/', limiter);
 
 // CORS config
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'https://papaya-kitten-d5846f.netlify.app',
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin(origin, callback) {
+    // Allow REST clients or same-origin (no Origin header)
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   // Include PATCH so preflight for toggle-active works
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
