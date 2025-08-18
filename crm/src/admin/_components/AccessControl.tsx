@@ -10,7 +10,17 @@ const AccessControl = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Users state from store
-  const { rows, loading, fetchUsers, grantEmailAccess, revokeEmailAccess, grantFollowUp, revokeFollowUp } = useUsers();
+  const {
+    rows,
+    loading,
+    fetchUsers,
+    grantLeadAccess,
+    revokeLeadAccess,
+    grantCatalogAccess,
+    revokeCatalogAccess,
+    grantTemplateAccess,
+    revokeTemplateAccess,
+  } = useUsers();
   // Local search state (decoupled from global store)
   const [search, setSearch] = useState('')
 
@@ -45,51 +55,76 @@ const AccessControl = () => {
       key: 'role',
       render: (text: string) => <strong>{text}</strong>,
     },
+    
     {
-      title: 'Email Access',
-      dataIndex: 'isEmailAccess',
-      key: 'isEmailAccess',
+      title: 'Lead Access',
+      dataIndex: 'isLeadAccess',
+      key: 'isLeadAccess',
       render: (_: any, record: any) => (
         <Switch
-          checked={!!record.isEmailAccess}
+          checked={!!record.isLeadAccess}
           checkedChildren="Enabled"
           unCheckedChildren="Disabled"
           onChange={async (checked) => {
             if (checked) {
-              const res = await grantEmailAccess(record.key)
-              if (res) message.success('Email access enabled')
-              else message.error('Failed to enable email access')
+              const res = await grantLeadAccess(record.key)
+              if (res) message.success('Lead access enabled')
+              else message.error('Failed to enable lead access')
             } else {
-              const res = await revokeEmailAccess(record.key)
-              if (res) message.success('Email access disabled')
-              else message.error('Failed to disable email access')
+              const res = await revokeLeadAccess(record.key)
+              if (res) message.success('Lead access disabled')
+              else message.error('Failed to disable lead access')
             }
           }}
-          style={{ backgroundColor: record.isEmailAccess ? 'black' : undefined }}
+          style={{ backgroundColor: record.isLeadAccess ? 'black' : undefined }}
         />
       ),
     },
     {
-      title: 'Follow-up Access',
-      dataIndex: 'isFollowUpPerson',
-      key: 'isFollowUpPerson',
+      title: 'Catalog Access',
+      dataIndex: 'isCatalogAccess',
+      key: 'isCatalogAccess',
       render: (_: any, record: any) => (
         <Switch
-          checked={!!record.isFollowUpPerson}
+          checked={!!record.isCatalogAccess}
           checkedChildren="Enabled"
           unCheckedChildren="Disabled"
           onChange={async (checked) => {
             if (checked) {
-              const res = await grantFollowUp(record.key)
-              if (res) message.success('Follow-up access enabled')
-              else message.error('Failed to enable follow-up access')
+              const res = await grantCatalogAccess(record.key)
+              if (res) message.success('Catalog access enabled')
+              else message.error('Failed to enable catalog access')
             } else {
-              const res = await revokeFollowUp(record.key)
-              if (res) message.success('Follow-up access disabled')
-              else message.error('Failed to disable follow-up access')
+              const res = await revokeCatalogAccess(record.key)
+              if (res) message.success('Catalog access disabled')
+              else message.error('Failed to disable catalog access')
             }
           }}
-          style={{ backgroundColor: record.isFollowUpPerson ? 'black' : undefined }}
+          style={{ backgroundColor: record.isCatalogAccess ? 'black' : undefined }}
+        />
+      ),
+    },
+    {
+      title: 'Template Access',
+      dataIndex: 'isTemplateAccess',
+      key: 'isTemplateAccess',
+      render: (_: any, record: any) => (
+        <Switch
+          checked={!!record.isTemplateAccess}
+          checkedChildren="Enabled"
+          unCheckedChildren="Disabled"
+          onChange={async (checked) => {
+            if (checked) {
+              const res = await grantTemplateAccess(record.key)
+              if (res) message.success('Template access enabled')
+              else message.error('Failed to enable template access')
+            } else {
+              const res = await revokeTemplateAccess(record.key)
+              if (res) message.success('Template access disabled')
+              else message.error('Failed to disable template access')
+            }
+          }}
+          style={{ backgroundColor: record.isTemplateAccess ? 'black' : undefined }}
         />
       ),
     },

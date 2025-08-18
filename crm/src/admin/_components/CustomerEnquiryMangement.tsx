@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Table, Tag, Input, Button, Space, Badge, Drawer, Descriptions, message, Modal, Form, Select, Popconfirm, Tooltip, Dropdown, Upload } from 'antd';
-import { SearchOutlined, MailOutlined, EyeOutlined, UserAddOutlined, EditOutlined, DeleteOutlined, MoreOutlined, UploadOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { Card, Table, Tag, Input, Button, Space, Badge, Drawer, Descriptions, message, Modal, Form, Select, Tooltip, Dropdown, Upload, Popconfirm } from 'antd';
+import { SearchOutlined, MailOutlined, EyeOutlined, EditOutlined, DeleteOutlined, MoreOutlined, UploadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table'
 import { useEnquiries } from '@/admin/_components/hooks/useEnquiries'
 import type { CustomerEnquiry } from '@/admin/_components/types/enquiry'
@@ -12,16 +12,14 @@ const CustomerEnquiryManagement = () => {
     items, total, page, limit, loading,
     search, status, priority,
     setSearch, setPage, setLimit, setStatus, setPriority,
-    fetch, convert, update, remove,
+    fetch, update, remove,
   } = useEnquiries()
 
   const [viewOpen, setViewOpen] = useState(false)
   const [viewed, setViewed] = useState<CustomerEnquiry | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [form] = Form.useForm()
-  const [customerOptions, setCustomerOptions] = useState<{ label: string; value: string; data: any }[]>([])
-  const searchTimer = useRef<any>(null)
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | undefined>(undefined)
+  
   const [editing, setEditing] = useState<CustomerEnquiry | null>(null)
   // Email compose state
   const [composeOpen, setComposeOpen] = useState(false)
@@ -133,12 +131,43 @@ const CustomerEnquiryManagement = () => {
         const items = [
           { key: 'respond', icon: <MailOutlined />, label: 'Respond' },
           { key: 'view', icon: <EyeOutlined />, label: 'View' },
-          { key: 'convert', icon: <UserAddOutlined />, label: 'Convert' },
           { key: 'edit', icon: <EditOutlined />, label: 'Edit' },
-          { key: 'delete', icon: <DeleteOutlined />, label: 'Delete', danger: true },
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            danger: true,
+            label: (
+              <Popconfirm
+                title="Delete this enquiry?"
+                okText="Delete"
+                okButtonProps={{ danger: true }}
+                onConfirm={async ()=>{
+                  console.log('[Enquiry] popconfirm onConfirm fired (menu)', { id: r?._id })
+                  if (!r?._id) { message.error('Invalid record (no id)'); return }
+                  try {
+                    console.log('[Enquiry] calling remove() from Popconfirm (menu)', { id: r._id })
+                    const ok = await remove(r._id)
+                    console.log('[Enquiry] remove() returned', ok)
+                    if (ok) message.success('Enquiry deleted')
+                    else message.error('Delete failed')
+                  } catch (e) {
+                    console.error('[Enquiry] remove() error', e)
+                    message.error('Delete failed')
+                  }
+                }}
+              >
+                <span style={{ color: '#ff4d4f' }}>Delete</span>
+              </Popconfirm>
+            ),
+          },
         ] as any
 
         const handleMenuClick = async ({ key }: { key: string }) => {
+          console.log('[Enquiry] action click', { key, id: r?._id, record: r })
+          if (key === 'delete') {
+            // Popconfirm inside label will handle the action
+            return
+          }
           if (key === 'respond') {
             if (!r.email) {
               message.info('No email')
@@ -156,12 +185,6 @@ const CustomerEnquiryManagement = () => {
           if (key === 'view') {
             setViewed(r); setViewOpen(true)
           }
-          if (key === 'convert') {
-            const res = await convert(r._id)
-            if (res?.customer?._id) message.success('Converted to customer')
-            else if (res) message.success('Converted')
-            else message.error('Convert failed')
-          }
           if (key === 'edit') {
             setEditing(r)
             form.setFieldsValue({
@@ -172,21 +195,9 @@ const CustomerEnquiryManagement = () => {
               priority: r.priority,
               status: r.status,
               notes: r.notes,
+              source: (r as any).source,
             })
-            setSelectedCustomerId((r as any).linkedCustomerId || undefined)
             setCreateOpen(true)
-          }
-          if (key === 'delete') {
-            Modal.confirm({
-              title: 'Delete this enquiry?',
-              okText: 'Delete',
-              okButtonProps: { danger: true },
-              onOk: async () => {
-                const ok = await remove(r._id)
-                if (ok) message.success('Enquiry deleted')
-                else message.error('Delete failed')
-              },
-            })
           }
         }
 
@@ -224,7 +235,7 @@ const CustomerEnquiryManagement = () => {
                 const ws = wb.Sheets[wb.SheetNames[0]]
                 const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
 
-                // Expect headers: name, email, phone, products, priority, status, notes
+                // Expect headers: name, email, phone, products, priority, status, notes, source
                 let success = 0, failed = 0
                 for (const row of rows) {
                   try {
@@ -236,6 +247,7 @@ const CustomerEnquiryManagement = () => {
                       priority: row.priority || row.Priority || 'Medium',
                       status: row.status || row.Status || 'New',
                       notes: row.notes || row.Notes || '',
+                      source: row.source || row.Source || '',
                     }
                     if (!payload.name) { failed++; continue }
                     const created = await (await import('@/admin/_components/services/enquiryService')).enquiryService.create(payload)
@@ -256,7 +268,7 @@ const CustomerEnquiryManagement = () => {
           >
             <Button loading={bulkUploading} icon={<UploadOutlined />}>Bulk Upload (Excel)</Button>
           </Upload>
-          <Button type="primary" onClick={()=>{ setEditing(null); setSelectedCustomerId(undefined); form.resetFields(); setCreateOpen(true) }} style={{ background:'black', borderColor:'black' }}>New Enquiry</Button>
+          <Button type="primary" onClick={()=>{ setEditing(null); form.resetFields(); setCreateOpen(true) }} style={{ background:'black', borderColor:'black' }}>New Enquiry</Button>
         </Space>
       }
       style={{ borderRadius: '10px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)' }}
@@ -302,7 +314,7 @@ const CustomerEnquiryManagement = () => {
               priority: values.priority,
               status: values.status || 'New',
               notes: values.notes,
-              linkedCustomerId: selectedCustomerId,
+              source: values.source,
             }
             if (editing) {
               const updated = await update(editing._id, payload)
@@ -311,7 +323,6 @@ const CustomerEnquiryManagement = () => {
                 setCreateOpen(false)
                 form.resetFields()
                 setEditing(null)
-                setSelectedCustomerId(undefined)
               } else {
                 message.error('Update failed')
               }
@@ -321,7 +332,6 @@ const CustomerEnquiryManagement = () => {
                 message.success('Enquiry created')
                 setCreateOpen(false)
                 form.resetFields()
-                setSelectedCustomerId(undefined)
                 await fetch()
               } else {
                 message.error('Failed to create')
@@ -332,37 +342,6 @@ const CustomerEnquiryManagement = () => {
         okButtonProps={{ style: { background: 'black', borderColor: 'black' } }}
       >
         <Form layout="vertical" form={form} initialValues={{ priority: 'Medium', status: 'New' }}>
-          <Form.Item label="Select Existing Customer">
-            <Select
-              showSearch
-              allowClear
-              placeholder="Search by name/email/phone"
-              filterOption={false}
-              onSearch={async (val)=>{
-                if (searchTimer.current) clearTimeout(searchTimer.current)
-                searchTimer.current = setTimeout(async ()=>{
-                  const mod = await import('@/admin/_components/services/customerService')
-                  const res = await mod.customerService.list({ q: val, page: 1, limit: 5 })
-                  const opts = res.items.map((c:any)=> ({ label: `${c.name} • ${c.email || c.phone || ''}`.trim(), value: c._id, data: c }))
-                  setCustomerOptions(opts)
-                }, 300)
-              }}
-              options={customerOptions}
-              value={selectedCustomerId}
-              onChange={(val, option:any)=>{
-                setSelectedCustomerId(val as string | undefined)
-                const data = option?.data
-                if (data) {
-                  form.setFieldsValue({
-                    name: data.name,
-                    email: data.email,
-                    phone: data.phone,
-                    products: data.interestedProducts || [],
-                  })
-                }
-              }}
-            />
-          </Form.Item>
           <Form.Item name="name" label="Customer Name" rules={[{ required: true }]}>
             <Input placeholder="Full name" />
           </Form.Item>
@@ -380,6 +359,9 @@ const CustomerEnquiryManagement = () => {
           </Form.Item>
           <Form.Item name="status" label="Status">
             <Select options={[{value:'New',label:'New'},{value:'In Progress',label:'In Progress'},{value:'Responded',label:'Responded'},{value:'Closed',label:'Closed'}]} />
+          </Form.Item>
+          <Form.Item name="source" label="Source">
+            <Input placeholder="e.g., Website, WhatsApp, Referral" />
           </Form.Item>
           <Form.Item name="notes" label="Notes">
             <Input.TextArea rows={3} />

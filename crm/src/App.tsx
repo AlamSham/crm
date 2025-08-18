@@ -51,6 +51,9 @@ const Gmaillayout = lazy(() =>
 const FollowUpIndex = lazy(() =>
   import("./admin/_components/follow-up/index")
 );
+const MerchandiserRoot = lazy(() =>
+  import("./merchandiser/_components/MerchandiserRoot")
+);
 
 export default function App() {
   return (
@@ -99,24 +102,16 @@ export default function App() {
         </Route>
         
         
-          <Route path="/merchandiser" element={<MerchandiserLayout />}>
-          <Route index element={<Navigate to="merchandiserDashboard" />} />
-          <Route path="merchandiserDashboard" element={<MerchandiserDashboard />} />
-          <Route
-            path="catlog"
-            element={<Catalog />}
-          />
-          <Route path="event" element={< Event />} />
-          <Route
-            path="lead"
-            element={<Lead />}
-          />
-            <Route
-            path="template"
-            element={<Template />}
-          />
-            
-        </Route>
+          <Route path="/merchandiser" element={<MerchandiserRoot />}>
+            <Route element={<MerchandiserLayout />}>
+              <Route index element={<Navigate to="merchandiserDashboard" />} />
+              <Route path="merchandiserDashboard" element={<MerchandiserDashboard />} />
+              <Route path="catalog" element={<Catalog />} />
+              <Route path="event" element={<Event />} />
+              <Route path="lead" element={<Lead />} />
+              <Route path="template" element={<Template />} />
+            </Route>
+          </Route>
         
       </Routes>
     </Suspense>

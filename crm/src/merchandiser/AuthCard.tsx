@@ -2,6 +2,9 @@ import { Card, Form, Input, Button, Alert, Divider, notification } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useMerchAuthStore, { type MerchUser } from '@/store/useMerchAuthStore';
+import merchAxios from '@/lib/merchAxios';
 
 type FormValues = {
   name?: string;
@@ -17,30 +20,58 @@ type AuthCardProps = {
 const AuthCard = ({ type }: AuthCardProps) => {
   const [form] = Form.useForm<FormValues>();
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const setAuth = useMerchAuthStore((s) => s.setAuth);
 
- const onFinish = async (values: FormValues) => {
-  setLoading(true);
-  try {
-    // Simulate API call with the form values
-    console.log('Submitting form values:', values); // Log values for demonstration
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    notification.success({
-      message: type === 'login' ? 'Login Successful' : 
-              type === 'register' ? 'Registration Complete' : 'Reset Link Sent',
-      description: type === 'login' ? 'Redirecting to dashboard...' : 
-                  `A confirmation has been sent to ${values.email}`
-    });
-  } catch (error: unknown) {
-    notification.error({ 
-      message: 'Error', 
-      description: error instanceof Error ? error.message : 'An unknown error occurred'
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  const onFinish = async (values: FormValues) => {
+    setLoading(true);
+    try {
+      if (type === 'login') {
+        const { data } = await merchAxios.post('/login', {
+          email: values.email,
+          password: values.password,
+        })
 
+        const u = data?.user
+        const accessToken: string | undefined = data?.accessToken
+        if (!u || !accessToken) throw new Error('Invalid server response')
+
+        const merchUser: MerchUser = {
+          id: u._id,
+          email: u.email,
+          isActive: !!u.active,
+          permissions: {
+            catalog: !!u.isCatalogAccess,
+            lead: !!u.isLeadAccess,
+            template: !!u.isTemplateAccess,
+          },
+        }
+
+        if (!merchUser.isActive) {
+          notification.error({ message: 'Account Inactive', description: 'Please contact admin.' })
+          return
+        }
+
+        setAuth(accessToken, merchUser)
+        notification.success({ message: 'Login Successful', description: 'Redirecting to dashboard...' })
+        navigate('/merchandiser/merchandiserDashboard', { replace: true })
+        return
+      }
+
+      notification.success({
+        message: type === 'register' ? 'Registration Complete' : 'Reset Link Sent',
+        description: `A confirmation has been sent to ${values.email}`,
+      })
+    } catch (error: unknown) {
+      notification.error({
+        message: 'Error',
+        description: error instanceof Error ? error.message : 'Invalid email or password',
+      })
+    } finally {
+      setLoading(false)
+    }
+  };
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -158,9 +189,9 @@ const AuthCard = ({ type }: AuthCardProps) => {
           </Form.Item>
         </Form>
 
-        <Divider className="text-xs text-gray-400">or</Divider>
+        {/* <Divider className="text-xs text-gray-400">or</Divider> */}
 
-        <div className="flex justify-between text-sm">
+        {/* <div className="flex justify-between text-sm">
           {type === 'login' ? (
             <>
               <a href="#forgot" className="text-gray-600 hover:text-black">
@@ -175,7 +206,7 @@ const AuthCard = ({ type }: AuthCardProps) => {
               Back to login
             </a>
           )}
-        </div>
+        </div> */}
       </Card>
     </motion.div>
   );

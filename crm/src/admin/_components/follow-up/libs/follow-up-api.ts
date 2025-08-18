@@ -268,6 +268,18 @@ export const templateApi = {
     return response.data.data
   },
 
+  approve: async (id: string): Promise<Template> => {
+    const adminId = getAdminId()
+    const response = await axiosInstance.patch<ApiResponse<Template>>(
+      `/api/followup/templates/${id}/approve`,
+      {},
+      {
+        headers: { "X-Admin-ID": adminId },
+      },
+    )
+    return response.data.data
+  },
+
   delete: async (id: string): Promise<void> => {
     const adminId = getAdminId()
     await axiosInstance.delete(`/api/followup/templates/${id}`, {

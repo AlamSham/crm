@@ -32,7 +32,8 @@ export default function FollowUpTemplates() {
     templatesLoading,
     createTemplate,
     updateTemplate,
-    deleteTemplate
+    deleteTemplate,
+    approveTemplate,
   } = useFollowUpContext()
 
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
@@ -84,11 +85,12 @@ export default function FollowUpTemplates() {
       title: 'Status',
       dataIndex: 'isActive',
       key: 'isActive',
-      render: (isActive: boolean) => (
-        <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Active' : 'Inactive'}
-        </Tag>
-      ),
+      render: (_: boolean, record: Template) => {
+        if (record.isActive) return <Tag color="green">Active</Tag>
+        // Pending if not active and not approved yet
+        if (!record.isActive && !record.approvedAt) return <Tag color="gold">Pending approval</Tag>
+        return <Tag color="red">Inactive</Tag>
+      },
     },
     {
       title: 'Variables',
@@ -147,6 +149,23 @@ export default function FollowUpTemplates() {
               onClick={() => handleEditTemplate(record)}
             />
           </Tooltip>
+
+          {!record.isActive && (
+            <Tooltip title="Approve Template">
+              <Button
+                type="text"
+                size="small"
+                icon={<CheckCircleOutlined style={{ color: '#16a34a' }} />}
+                onClick={async () => {
+                  try {
+                    await approveTemplate(record._id)
+                  } catch (e) {
+                    console.error('Approve failed', e)
+                  }
+                }}
+              />
+            </Tooltip>
+          )}
           
           <Popconfirm
             title="Delete Template"
@@ -258,7 +277,7 @@ export default function FollowUpTemplates() {
   useEffect(() => {
     const loadCatalogItems = async () => {
       try {
-        const res = await catalogApi.getItems({ page: 1, limit: 100 })
+        const res = await catalogApi.getItems({ page: 1, limit: 100, status: 'active' })
         setCatalogItems(res.items || [])
       } catch (e) {
         console.error('Failed to load catalog items', e)

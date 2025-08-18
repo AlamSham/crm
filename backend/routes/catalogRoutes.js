@@ -2,6 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const router = express.Router()
 const catalogController = require('../controllers/catalogController')
+const { verifyAccessToken } = require('../middleware/authMiddleware')
 
 const storage = multer.memoryStorage()
 const upload = multer({
@@ -28,9 +29,13 @@ router.delete('/categories/:id', catalogController.deleteCategory)
 // Items
 router.post('/items', catalogController.createItem)
 router.get('/items', catalogController.listItems)
+// Admin: list pending catalog items (place before /items/:id)
+router.get('/items/pending', verifyAccessToken, catalogController.listPendingForAdmin)
 router.get('/items/:id', catalogController.getItem)
 router.put('/items/:id', catalogController.updateItem)
 router.delete('/items/:id', catalogController.deleteItem)
+// Admin: approve catalog item
+router.patch('/items/:id/approve', verifyAccessToken, catalogController.approveItem)
 
 // Upload image
 router.post('/upload/image', upload.single('image'), catalogController.uploadImage)

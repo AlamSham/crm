@@ -2,6 +2,55 @@ const followupService = require("../services/followupService")
 const Contact = require("../models/follow-up/Contact")
 const logger = require("../utils/logger")
 
+// Helper to extract auth from header/body/query for quick merch integration
+function getAuth(req) {
+  const headerId = req.headers['x-admin-id'] || req.headers['x-user-id']
+  const bodyId = req.body?.adminId || req.body?.userId
+  const queryId = req.query?.userId
+  const userId = headerId || bodyId || queryId || null
+  const role = (req.role) || req.headers['x-role'] || req.query?.role || (userId ? 'admin' : null)
+  return { userId, role }
+}
+
+// List all pending templates for admin (created by merch or inactive)
+async function listPendingTemplatesForAdmin(req, res) {
+  try {
+    if (req.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admins only' })
+    }
+    const Template = require('../models/follow-up/Template')
+    const query = { isActive: false }
+    // Optionally filter only merch-created
+    // query.createdByRole = 'merch'
+    const templates = await Template.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'createdBy',
+          foreignField: '_id',
+          as: 'creator',
+        },
+      },
+      { $unwind: { path: '$creator', preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          createdByUser: {
+            name: '$creator.name',
+            email: '$creator.email',
+          },
+        },
+      },
+      { $project: { creator: 0 } },
+    ])
+    return res.json({ success: true, data: templates })
+  } catch (error) {
+    logger.error('Error listing pending templates:', error)
+    return res.status(500).json({ success: false, message: 'Failed to fetch pending templates', error: error.message })
+  }
+}
+
 // Campaign Controllers
 async function createCampaign(req, res) {
   try {
@@ -375,10 +424,21 @@ async function deleteContactList(req, res) {
 // Template Controllers
 async function createTemplate(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    // Prefer auth middleware injected user, fallback to headers/body/query
+    const { userId, role } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
+    const createdByRole = role || 'admin'
     const templateData = {
       ...req.body,
-      userId
+      userId, // backward compatibility
+      createdBy: userId,
+      createdByRole,
+      // If merch created, force inactive until admin approves
+      isActive: createdByRole === 'merch' ? false : (req.body.isActive ?? true),
+      approvedBy: createdByRole === 'admin' ? (userId || null) : null,
+      approvedAt: createdByRole === 'admin' ? new Date() : null,
     }
 
     const template = await followupService.createTemplate(templateData)
@@ -398,17 +458,49 @@ async function createTemplate(req, res) {
   }
 }
 
+// Approve a template (admin only)
+async function approveTemplate(req, res) {
+  try {
+    if (req.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admins only' })
+    }
+    const { templateId } = req.params
+    const Template = require('../models/follow-up/Template')
+    const tpl = await Template.findByIdAndUpdate(
+      templateId,
+      { isActive: true, approvedBy: req.userId, approvedAt: new Date() },
+      { new: true }
+    )
+    if (!tpl) return res.status(404).json({ success: false, message: 'Template not found' })
+    return res.json({ success: true, message: 'Template approved', data: tpl })
+  } catch (error) {
+    logger.error('Error approving template:', error)
+    return res.status(500).json({ success: false, message: 'Failed to approve template', error: error.message })
+  }
+}
+
 async function getTemplates(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
-    const { page = 1, limit = 10, search = "", type = "" } = req.query
+    const { userId, role } = getAuth(req)
+    const { page = 1, limit = 10, search = "", type = "", isActive, approvedOnly } = req.query
 
-    const result = await followupService.getTemplates(userId, {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      search: search.toString(),
-      type: type.toString()
-    })
+    const result = role === 'admin'
+      ? await followupService.getAllTemplates({
+          page: parseInt(page),
+          limit: parseInt(limit),
+          search: search.toString(),
+          type: type.toString(),
+          isActive: typeof isActive !== 'undefined' ? (isActive === 'true' || isActive === true || isActive === '1') : undefined,
+          approvedOnly: !!(approvedOnly === 'true' || approvedOnly === true || approvedOnly === '1'),
+        })
+      : await followupService.getTemplates(userId, {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          search: search.toString(),
+          type: type.toString(),
+          isActive: typeof isActive !== 'undefined' ? (isActive === 'true' || isActive === true || isActive === '1') : undefined,
+          approvedOnly: !!(approvedOnly === 'true' || approvedOnly === true || approvedOnly === '1'),
+        })
 
     res.json({
       success: true,
@@ -427,7 +519,10 @@ async function getTemplates(req, res) {
 
 async function updateTemplate(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { templateId } = req.params
     const updateData = req.body
 
@@ -450,7 +545,10 @@ async function updateTemplate(req, res) {
 
 async function deleteTemplate(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { templateId } = req.params
 
     const result = await followupService.deleteTemplate(templateId, userId)
@@ -717,6 +815,8 @@ module.exports = {
 
   // Template Controllers
   createTemplate,
+  listPendingTemplatesForAdmin,
+  approveTemplate,
   getTemplates,
   updateTemplate,
   deleteTemplate,

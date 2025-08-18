@@ -16,11 +16,6 @@ export const enquiryService = {
     const res = await axiosInstance.put<CustomerEnquiry>(`/enquiries/${id}`, input)
     return res.data
   },
-
-  async convert(id: string) {
-    const res = await axiosInstance.post<{ message: string; customer: any }>(`/enquiries/${id}/convert`)
-    return res.data
-  },
   
   async remove(id: string) {
     const res = await axiosInstance.delete<{ message: string }>(`/enquiries/${id}`)

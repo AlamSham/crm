@@ -24,8 +24,8 @@ export const userService = {
   },
 
   async create(input: CreateUserInput) {
-    const { name, email, role, active = true, avatarFile, password, isFollowUpPerson = false } = input
-    const fd = buildFormData({ name, email, role, active, password, isFollowUpPerson, avatar: avatarFile || undefined })
+    const { name, email, active = true, avatarFile, password } = input
+    const fd = buildFormData({ name, email, active, password, avatar: avatarFile || undefined })
     const res = await axiosInstance.post<User>('/users/create', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
@@ -33,8 +33,8 @@ export const userService = {
   },
 
   async update(input: UpdateUserInput) {
-    const { id, name, role, active, avatarFile, password, isFollowUpPerson } = input
-    const fd = buildFormData({ name, role, active, password, isFollowUpPerson, avatar: avatarFile || undefined })
+    const { id, name, active, avatarFile, password } = input
+    const fd = buildFormData({ name, active, password, avatar: avatarFile || undefined })
     const res = await axiosInstance.put<User>(`/users/update/${id}`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
@@ -51,23 +51,31 @@ export const userService = {
     return res.data
   },
 
-  async grantFollowUp(id: string) {
-    const res = await axiosInstance.patch<User>(`/users/grant-followup/${id}`)
+  // removed follow-up and email permission APIs
+
+  // New granular permissions
+  async grantLeadAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/grant-lead/${id}`)
     return res.data
   },
-
-  async grantEmailAccess(id: string) {
-    const res = await axiosInstance.patch<User>(`/users/grant-email-access/${id}`)
+  async revokeLeadAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/revoke-lead/${id}`)
     return res.data
   },
-
-  async revokeFollowUp(id: string) {
-    const res = await axiosInstance.patch<User>(`/users/revoke-followup/${id}`)
+  async grantCatalogAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/grant-catalog/${id}`)
     return res.data
   },
-
-  async revokeEmailAccess(id: string) {
-    const res = await axiosInstance.patch<User>(`/users/revoke-email-access/${id}`)
+  async revokeCatalogAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/revoke-catalog/${id}`)
+    return res.data
+  },
+  async grantTemplateAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/grant-template/${id}`)
+    return res.data
+  },
+  async revokeTemplateAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/revoke-template/${id}`)
     return res.data
   },
 }

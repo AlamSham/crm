@@ -1,4 +1,6 @@
 import { Card, Row, Col, Statistic, Table, Typography, Tag } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+
 import { 
   ArrowUpOutlined, 
   UserOutlined,
@@ -9,6 +11,10 @@ import {
   LineChartOutlined
 } from '@ant-design/icons';
 import { Bar, Line } from 'react-chartjs-2';
+import { merchDashboardApi } from '../_libs/dashboard-api';
+import { leadApi } from '../_libs/lead-api';
+import type { LeadDto } from '../_libs/lead-api';
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -35,86 +41,127 @@ ChartJS.register(
 const { Title: AntTitle } = Typography;
 
 const MerchandiserDashboard = () => {
-  // Chart Data for Bar Chart
-  const leadsChartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Leads 2023',
-        data: [12, 19, 15, 27, 22, 30],
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        borderColor: 'rgba(0, 0, 0, 1)',
-        borderWidth: 1,
-      },
-    ],
-  };
+  const [loading, setLoading] = useState(false)
+  const [summary, setSummary] = useState<null | {
+    leads: { total: number; byStatus: Record<string, number>; byPriority: Record<string, number> }
+    events: { total: number; upcoming: number }
+    catalogs: { total: number }
+    templates: { total: number }
+  }>(null)
+  const [timeseries, setTimeseries] = useState<null | {
+    leadsMonthly: { _id: { y: number; m: number }; count: number }[]
+    eventsMonthly: { _id: { y: number; m: number }; count: number }[]
+  }>(null)
+  const [recentLeads, setRecentLeads] = useState<LeadDto[]>([])
 
-  // Communication Data for Line Chart
-  const commData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Communications Sent',
-        data: [24, 38, 30, 54, 44, 60],
-        borderColor: 'rgba(75, 192, 192, 1)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        tension: 0.4,
-      },
-    ],
-  };
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        setLoading(true)
+        const [s, t, leadsRes] = await Promise.all([
+          merchDashboardApi.summary(),
+          merchDashboardApi.timeseries(),
+          leadApi.list({ page: 1, limit: 5 }),
+        ])
+        if (!mounted) return
+        setSummary(s)
+        setTimeseries(t)
+        setRecentLeads(leadsRes.leads)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  // Build last 12 months labels
+  const monthLabels = useMemo(() => {
+    const fmt = (d: Date) => d.toLocaleString('default', { month: 'short' })
+    const arr: string[] = []
+    const now = new Date()
+    for (let i = 11; i >= 0; i--) {
+      const x = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      arr.push(fmt(x))
+    }
+    return arr
+  }, [])
+
+  const leadsChartData = useMemo(() => {
+    const counts = new Array(12).fill(0)
+    if (timeseries) {
+      const now = new Date()
+      for (const row of timeseries.leadsMonthly) {
+        const idx = (now.getFullYear() - row._id.y) * 12 + (now.getMonth() - (row._id.m - 1))
+        if (idx >= 0 && idx < 12) counts[11 - idx] = row.count
+      }
+    }
+    return {
+      labels: monthLabels,
+      datasets: [
+        {
+          label: 'Leads (Last 12 months)',
+          data: counts,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          borderColor: 'rgba(0, 0, 0, 1)',
+          borderWidth: 1,
+        },
+      ],
+    }
+  }, [timeseries, monthLabels])
+
+  const eventsLineData = useMemo(() => {
+    const counts = new Array(12).fill(0)
+    if (timeseries) {
+      const now = new Date()
+      for (const row of timeseries.eventsMonthly) {
+        const idx = (now.getFullYear() - row._id.y) * 12 + (now.getMonth() - (row._id.m - 1))
+        if (idx >= 0 && idx < 12) counts[11 - idx] = row.count
+      }
+    }
+    return {
+      labels: monthLabels,
+      datasets: [
+        {
+          label: 'Events Created',
+          data: counts,
+          borderColor: 'rgba(75, 192, 192, 1)',
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          tension: 0.4,
+        },
+      ],
+    }
+  }, [timeseries, monthLabels])
 
   // Recent Leads Table Data
   const leadsColumns = [
-    {
-      title: 'Lead ID',
-      dataIndex: 'id',
-      key: 'id',
-    },
     {
       title: 'Customer',
       dataIndex: 'customer',
       key: 'customer',
     },
     {
-      title: 'Product Interest',
-      dataIndex: 'product',
-      key: 'product',
-    },
-    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (text: string) => (
-        <Tag color={text === 'Hot' ? 'red' : text === 'Warm' ? 'orange' : 'blue'}>
+        <Tag color={text === 'Hot' ? 'red' : text === 'Follow-up' ? 'orange' : 'blue'}>
           {text}
         </Tag>
       ),
     },
-  ];
-
-  const leadsTableData = [
     {
-      key: '1',
-      id: 'LD-1001',
-      customer: 'John Doe',
-      product: 'Product A',
-      status: 'Hot',
+      title: 'Priority',
+      dataIndex: 'priority',
+      key: 'priority',
     },
     {
-      key: '2',
-      id: 'LD-1002',
-      customer: 'Jane Smith',
-      product: 'Product C',
-      status: 'Warm',
+      title: 'Last Contact',
+      dataIndex: 'lastContact',
+      key: 'lastContact',
+      render: (v: string | null) => (v ? new Date(v).toLocaleDateString() : '-'),
     },
-    {
-      key: '3',
-      id: 'LD-1003',
-      customer: 'Robert Johnson',
-      product: 'Product B',
-      status: 'Cold',
-    },
-  ];
+  ]
 
   return (
     <div style={{ padding: '20px' }}>
@@ -126,22 +173,17 @@ const MerchandiserDashboard = () => {
           <Card>
             <Statistic
               title="Total Leads"
-              value={154}
+              value={summary?.leads.total || 0}
               valueStyle={{ color: '#000' }}
               prefix={<UserOutlined />}
-              suffix={
-                <span style={{ fontSize: '14px', color: '#52c41a' }}>
-                  <ArrowUpOutlined /> 12%
-                </span>
-              }
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
             <Statistic
-              title="Pending Approvals"
-              value={8}
+              title="Catalog Items"
+              value={summary?.catalogs.total || 0}
               valueStyle={{ color: '#000' }}
               prefix={<CheckCircleOutlined />}
             />
@@ -150,8 +192,8 @@ const MerchandiserDashboard = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Scheduled Comms"
-              value={24}
+              title="Templates"
+              value={summary?.templates.total || 0}
               valueStyle={{ color: '#000' }}
               prefix={<ClockCircleOutlined />}
             />
@@ -161,7 +203,7 @@ const MerchandiserDashboard = () => {
           <Card>
             <Statistic
               title="Upcoming Events"
-              value={5}
+              value={summary?.events.upcoming || 0}
               valueStyle={{ color: '#000' }}
               prefix={<CalendarOutlined />}
             />
@@ -177,8 +219,8 @@ const MerchandiserDashboard = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="Communications" extra={<LineChartOutlined />}>
-            <Line data={commData} options={{ responsive: true }} />
+          <Card title="Events (Monthly)" extra={<LineChartOutlined />}>
+            <Line data={eventsLineData} options={{ responsive: true }} />
           </Card>
         </Col>
       </Row>
@@ -187,15 +229,17 @@ const MerchandiserDashboard = () => {
       <Row gutter={16} style={{ marginBottom: '24px' }}>
         <Col span={24}>
           <Card title="Recent Leads">
-            <Table 
-              columns={leadsColumns} 
-              dataSource={leadsTableData} 
+            <Table
+              columns={leadsColumns as any}
+              dataSource={recentLeads.map(l => ({ ...l, key: l._id }))}
               size="small"
-              pagination={{ pageSize: 5 }} 
+              loading={loading}
+              pagination={{ pageSize: 5 }}
             />
           </Card>
         </Col>
       </Row>
+
     </div>
   );
 };

@@ -71,6 +71,11 @@ export interface Template {
   catalogLayout?: 'grid2' | 'grid3' | 'list'
   showPrices?: boolean
   userId: string
+  // Ownership & approval metadata
+  createdBy?: string
+  createdByRole?: 'admin' | 'merch'
+  approvedBy?: string | null
+  approvedAt?: Date | null
   createdAt: Date
   updatedAt: Date
 }

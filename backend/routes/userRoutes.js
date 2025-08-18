@@ -8,10 +8,12 @@ const {
   updateUser,
   deleteUser,
   toggleActive,
-  grantEmailAccess,
-  grantFollowUpPerson,
-  revokeEmailAccess,
-  revokeFollowUpPerson,
+  grantLeadAccess,
+  revokeLeadAccess,
+  grantCatalogAccess,
+  revokeCatalogAccess,
+  grantTemplateAccess,
+  revokeTemplateAccess,
 } = require('../controllers/userController');
 
 const router = express.Router();
@@ -30,12 +32,14 @@ router.put('/update/:id', verifyAccessToken, upload.single('avatar'), updateUser
 router.delete('/delete/:id', verifyAccessToken, deleteUser);
 router.patch('/toggle-active/:id', verifyAccessToken, toggleActive);
 // Grant email access (set isEmailAccess = true)
-router.patch('/grant-email-access/:id', verifyAccessToken, grantEmailAccess);
-// Revoke email access (set isEmailAccess = false)
-router.patch('/revoke-email-access/:id', verifyAccessToken, revokeEmailAccess);
-// Grant follow-up person (set isFollowUpPerson = true)
-router.patch('/grant-followup/:id', verifyAccessToken, grantFollowUpPerson);
-// Revoke follow-up person (set isFollowUpPerson = false)
-router.patch('/revoke-followup/:id', verifyAccessToken, revokeFollowUpPerson);
+// Removed email access routes
+
+// New granular permission routes
+router.patch('/grant-lead/:id', verifyAccessToken, grantLeadAccess);
+router.patch('/revoke-lead/:id', verifyAccessToken, revokeLeadAccess);
+router.patch('/grant-catalog/:id', verifyAccessToken, grantCatalogAccess);
+router.patch('/revoke-catalog/:id', verifyAccessToken, revokeCatalogAccess);
+router.patch('/grant-template/:id', verifyAccessToken, grantTemplateAccess);
+router.patch('/revoke-template/:id', verifyAccessToken, revokeTemplateAccess);
 
 module.exports = router;

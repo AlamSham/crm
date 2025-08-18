@@ -8,8 +8,9 @@ export type UserRow = {
   role: User['role']
   active: boolean
   lastLogin: string
-  isFollowUpPerson?: boolean
-  isEmailAccess?: boolean
+  isLeadAccess?: boolean
+  isCatalogAccess?: boolean
+  isTemplateAccess?: boolean
 }
 
 function toRow(u: User): UserRow {
@@ -19,8 +20,9 @@ function toRow(u: User): UserRow {
     role: u.role,
     active: u.active,
     lastLogin: u.lastLogin ? new Date(u.lastLogin).toLocaleString() : '',
-    isFollowUpPerson: u.isFollowUpPerson,
-    isEmailAccess: (u as any).isEmailAccess,
+    isLeadAccess: (u as any).isLeadAccess,
+    isCatalogAccess: (u as any).isCatalogAccess,
+    isTemplateAccess: (u as any).isTemplateAccess,
   }
 }
 
@@ -39,9 +41,11 @@ export function useUsers() {
     updateUser: store.updateUser,
     deleteUser: store.deleteUser,
     toggleActive: store.toggleActive,
-    grantFollowUp: store.grantFollowUp,
-    grantEmailAccess: store.grantEmailAccess,
-    revokeFollowUp: store.revokeFollowUp,
-    revokeEmailAccess: store.revokeEmailAccess,
+    grantLeadAccess: store.grantLeadAccess,
+    revokeLeadAccess: store.revokeLeadAccess,
+    grantCatalogAccess: store.grantCatalogAccess,
+    revokeCatalogAccess: store.revokeCatalogAccess,
+    grantTemplateAccess: store.grantTemplateAccess,
+    revokeTemplateAccess: store.revokeTemplateAccess,
   }
 }

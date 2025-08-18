@@ -38,7 +38,7 @@ app.use(cors({
   credentials: true,
   // Include PATCH so preflight for toggle-active works
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-id', 'X-Requested-With']
 }));
 
 // Note: cors() middleware already handles preflight; no explicit app.options needed for Express 5
@@ -53,11 +53,20 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const adminRoutes = require('./routes/adminRoutes');
 app.use('/api/admin', adminRoutes);
 
+// Merchandiser auth routes
+const merchRoutes = require('./routes/merchRoutes');
+app.use('/api/merch', merchRoutes);
+
 const emailRoutes = require('./routes/emailRoutes');
 app.use('/api/emails', emailRoutes);
 
 const followupRoutes = require('./routes/followupRoutes');
+// Admin-mounted (legacy)
 app.use('/api/admin/api/followup', followupRoutes);
+// Public (admin/merch via query-based auth)
+app.use('/api/follow-up', followupRoutes);
+// Alias for consistency with frontend: allow /api/followups/* as well
+app.use('/api/followups', followupRoutes);
 
 // Catalog routes
 const catalogRoutes = require('./routes/catalogRoutes');

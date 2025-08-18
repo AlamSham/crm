@@ -21,7 +21,6 @@ interface EnquiryState {
   fetch: () => Promise<void>
   update: (id: string, input: Partial<CustomerEnquiry>) => Promise<CustomerEnquiry | null>
   create: (input: Partial<CustomerEnquiry>) => Promise<CustomerEnquiry | null>
-  convert: (id: string) => Promise<{ message: string; customer: any } | null>
   remove: (id: string) => Promise<boolean>
 }
 
@@ -72,23 +71,19 @@ export const useEnquiryStore = create<EnquiryState>((set, get) => ({
     }
   },
 
-  convert: async (id) => {
-    try {
-      const res = await enquiryService.convert(id)
-      // mark enquiry responded and keep linkage if backend returned updated status via fetch later
-      await get().fetch()
-      return res
-    } catch {
-      return null
-    }
-  },
-
   remove: async (id) => {
     try {
       await enquiryService.remove(id)
       set((s) => ({ items: s.items.filter((e) => e._id !== id), total: Math.max(0, s.total - 1) }))
       return true
-    } catch {
+    } catch (e: any) {
+      // Surface error details in console for debugging
+      console.error('[EnquiryStore] remove failed', {
+        id,
+        error: e,
+        responseStatus: e?.response?.status,
+        responseData: e?.response?.data,
+      })
       return false
     }
   },

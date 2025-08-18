@@ -27,7 +27,12 @@ export interface CatalogItem {
   files?: CatalogFile[]
   categoryIds: string[]
   tags: string[]
-  status: 'active' | 'archived'
+  status: 'pending' | 'active' | 'archived'
+  // Ownership & approval metadata (added for admin approval workflow)
+  createdBy?: string
+  createdByRole?: 'admin' | 'merch'
+  approvedBy?: string | null
+  approvedAt?: string | null
   createdAt: string
   updatedAt: string
 }

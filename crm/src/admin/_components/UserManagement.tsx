@@ -1,13 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Table, Tag, Input, Button, Space, Popconfirm, Switch, Avatar, Modal, Form, Select, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Card, Table, Tag, Input, Button, Space, Popconfirm, Switch, Avatar, Modal, Form, message } from 'antd';
 import { SearchOutlined, EditOutlined, DeleteOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons';
-import type { UserRole } from '@/admin/_components/types/user';
+// role is fixed to 'Merchandiser'; no type import needed
 import { useUsers, type UserRow } from '@/admin/_components/hooks/useUsers';
 
 type UserFormValues = {
   name: string;
   email: string;
-  role: UserRole;
   active: boolean;
   password?: string;
 };
@@ -21,7 +20,7 @@ const UserManagement = () => {
   const [submitting, setSubmitting] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
-  const roles = useMemo(() => ['Admin', 'Merchandiser'], []);
+  // role selection removed; default is Merchandiser on backend
 
   useEffect(() => {
     fetchUsers();
@@ -52,7 +51,6 @@ const UserManagement = () => {
     form.setFieldsValue({
       name: user.user.name,
       email: user.user.email,
-      role: user.role,
       active: user.active,
     } as any);
     setAvatarFile(null);
@@ -70,11 +68,11 @@ const UserManagement = () => {
       const values = await form.validateFields();
       setSubmitting(true);
       if (editing) {
-        const res = await updateUser({ id: editing.key, name: values.name, role: values.role, active: values.active, avatarFile, password: values.password });
+        const res = await updateUser({ id: editing.key, name: values.name, active: values.active, avatarFile, password: values.password });
         if (res) message.success('User updated');
         else throw new Error('Update failed');
       } else {
-        const res = await createUser({ name: values.name, email: values.email, role: values.role, active: values.active ?? true, avatarFile, password: values.password as string });
+        const res = await createUser({ name: values.name, email: values.email, active: values.active ?? true, avatarFile, password: values.password as string });
         if (res) message.success('User created');
         else throw new Error('Create failed');
       }
@@ -130,12 +128,7 @@ const UserManagement = () => {
       dataIndex: 'role',
       key: 'role',
       render: (role: string) => (
-        <Tag
-          color={role === 'Admin' ? 'red' : 'blue'}
-          style={{ fontWeight: 600 }}
-        >
-          {role}
-        </Tag>
+        <Tag color={'blue'} style={{ fontWeight: 600 }}>{role || 'Merchandiser'}</Tag>
       ),
     },
     {
@@ -249,9 +242,7 @@ const UserManagement = () => {
           <Form.Item name="password" label="Password" rules={[{ required: !editing, min: 6, message: 'Min 6 characters' }]}> 
             <Input.Password placeholder={editing ? 'Leave blank to keep current password' : 'Enter password'} />
           </Form.Item>
-          <Form.Item name="role" label="Role" rules={[{ required: true }] }>
-            <Select options={roles.map((r) => ({ label: r, value: r }))} placeholder="Select role" />
-          </Form.Item>
+          {/* Role field removed - backend defaults to Merchandiser */}
           <Form.Item
             label="Avatar"
             help={avatarError || 'Maximum file size: 5MB'}

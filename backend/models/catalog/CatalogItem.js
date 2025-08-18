@@ -3,6 +3,9 @@ const mongoose = require('mongoose')
 const CatalogItemSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // Creator (Admin or Merch)
+    createdBy: { type: mongoose.Schema.Types.ObjectId, required: true },
+    createdByRole: { type: String, enum: ['admin', 'merch'], required: true },
     title: { type: String, required: true },
     description: { type: String, default: '' },
     price: { type: Number },
@@ -29,7 +32,9 @@ const CatalogItemSchema = new mongoose.Schema(
     ],
     categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CatalogCategory' }],
     tags: [{ type: String }],
-    status: { type: String, enum: ['active', 'archived'], default: 'active' },
+    status: { type: String, enum: ['pending', 'active', 'archived'], default: 'active' },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },
+    approvedAt: { type: Date, default: null },
   },
   { timestamps: true }
 )

@@ -35,6 +35,8 @@ async function createItem(userId, data) {
   }
   const item = new CatalogItem({
     userId,
+    createdBy: data.createdBy,
+    createdByRole: data.createdByRole,
     title: data.title,
     description: data.description || '',
     price: data.price,
@@ -43,6 +45,8 @@ async function createItem(userId, data) {
     categoryIds: data.categoryIds || [],
     tags: data.tags || [],
     status: data.status || 'active',
+    approvedBy: data.approvedBy || null,
+    approvedAt: data.approvedAt || null,
   })
   await item.save()
   return item
@@ -50,6 +54,30 @@ async function createItem(userId, data) {
 
 async function getItems(userId, { page = 1, limit = 12, search = '', categoryId = '', status = '' }) {
   const query = { userId }
+  if (search) {
+    query.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { tags: { $in: [new RegExp(search, 'i')] } },
+    ]
+  }
+  if (categoryId) query.categoryIds = categoryId
+  if (status) query.status = status
+
+  const items = await CatalogItem.find(query)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+  const total = await CatalogItem.countDocuments(query)
+  return {
+    items,
+    pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / limit) },
+  }
+}
+
+// Admin: list items across all users (no userId filter)
+async function getAllItems({ page = 1, limit = 12, search = '', categoryId = '', status = '' }) {
+  const query = {}
   if (search) {
     query.$or = [
       { title: { $regex: search, $options: 'i' } },
@@ -151,6 +179,7 @@ module.exports = {
   // items
   createItem,
   getItems,
+  getAllItems,
   getItemById,
   updateItem,
   deleteItem,

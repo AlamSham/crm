@@ -1,5 +1,4 @@
 const CustomerEnquiry = require('../models/enquiry');
-const Customer = require('../models/customer');
 
 // List enquiries with pagination and filters
 exports.listEnquiries = async (req, res, next) => {
@@ -73,55 +72,3 @@ exports.deleteEnquiry = async (req, res, next) => {
   }
 };
 
-// Convert enquiry to customer (create or merge)
-exports.convertEnquiry = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const enquiry = await CustomerEnquiry.findById(id);
-    if (!enquiry) return res.status(404).json({ message: 'Enquiry not found' });
-
-    // Try match by email or phone
-    const matchQuery = [];
-    if (enquiry.email) matchQuery.push({ email: enquiry.email });
-    if (enquiry.phone) matchQuery.push({ phone: enquiry.phone });
-
-    let customer = null;
-    if (matchQuery.length) {
-      customer = await Customer.findOne({ $or: matchQuery });
-    }
-
-    const now = new Date();
-
-    if (customer) {
-      // Merge: update interestedProducts (union) and push history
-      const unionProducts = Array.from(new Set([...(customer.interestedProducts || []), ...(enquiry.products || [])]));
-      customer.interestedProducts = unionProducts;
-      customer.history = customer.history || [];
-      customer.history.push({ date: now, action: 'Converted from enquiry', details: `Enquiry ${enquiry._id} merged` });
-      await customer.save();
-    } else {
-      // Create new customer
-      customer = await Customer.create({
-        name: enquiry.name,
-        email: enquiry.email,
-        phone: enquiry.phone,
-        address: '',
-        status: 'Warm',
-        interestedProducts: enquiry.products || [],
-        notes: enquiry.notes || '',
-        history: [
-          { date: now, action: 'Created', details: 'Customer created from enquiry' },
-        ],
-      });
-    }
-
-    // Link back and update enquiry status
-    enquiry.linkedCustomerId = customer._id;
-    enquiry.status = 'Responded';
-    await enquiry.save();
-
-    res.json({ message: 'Converted', customer });
-  } catch (err) {
-    next(err);
-  }
-};

@@ -1,4 +1,4 @@
-export type UserRole = 'Admin' | 'Merchandiser'
+export type UserRole = 'Merchandiser'
 
 export interface User {
   _id: string
@@ -8,7 +8,10 @@ export interface User {
   avatar?: string
   active: boolean
   lastLogin?: string
-  isFollowUpPerson?: boolean
+  // removed: isFollowUpPerson, isEmailAccess
+  isLeadAccess?: boolean
+  isCatalogAccess?: boolean
+  isTemplateAccess?: boolean
 }
 
 export interface UserListResponse {
@@ -21,19 +24,23 @@ export interface UserListResponse {
 export interface CreateUserInput {
   name: string
   email: string
-  role: UserRole
   active?: boolean
   avatarFile?: File | null
   password: string
-  isFollowUpPerson?: boolean
+  // removed: isFollowUpPerson, isEmailAccess
+  isLeadAccess?: boolean
+  isCatalogAccess?: boolean
+  isTemplateAccess?: boolean
 }
 
 export interface UpdateUserInput {
   id: string
   name?: string
-  role?: UserRole
   active?: boolean
   avatarFile?: File | null
   password?: string
-  isFollowUpPerson?: boolean
+  // removed: isFollowUpPerson, isEmailAccess
+  isLeadAccess?: boolean
+  isCatalogAccess?: boolean
+  isTemplateAccess?: boolean
 }

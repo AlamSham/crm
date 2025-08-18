@@ -50,9 +50,20 @@ export const catalogApi = {
 
   // Items
   async createItem(payload: Partial<CatalogItem>) {
+    // Ensure required creator fields exist to satisfy backend validation
+    const adminId = getAdminId()
+    if (!adminId) {
+      throw new Error('Missing adminId. Please log in as admin to create catalog items.')
+    }
+    const enriched = {
+      userId: (payload as any).userId || adminId,
+      createdBy: (payload as any).createdBy || adminId,
+      createdByRole: (payload as any).createdByRole || 'admin',
+      ...payload,
+    }
     const data = await http<{ success: boolean; data: CatalogItem }>(`/api/catalog/items`, {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(enriched),
     })
     return data.data
   },
@@ -81,6 +92,14 @@ export const catalogApi = {
   },
   async deleteItem(id: string) {
     await http<{ success: boolean; message: string }>(`/api/catalog/items/${id}`, { method: 'DELETE' })
+  },
+  
+  // Admin: approve pending item
+  async approveItem(id: string) {
+    const data = await http<{ success: boolean; data: CatalogItem }>(`/api/catalog/items/${id}/approve`, {
+      method: 'PATCH',
+    })
+    return data.data
   },
 
   async uploadImage(file: File) {

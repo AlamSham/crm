@@ -114,7 +114,7 @@ export default function Login() {
               </div>
             )}
 
-            <div className="flex items-center justify-between">
+            {/* <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <input
                   id="remember-me"
@@ -129,7 +129,7 @@ export default function Login() {
               <button type="button" className="text-sm text-blue-600 hover:text-blue-500 font-medium">
                 Forgot password?
               </button>
-            </div>
+            </div> */}
 
             <button
               type="submit"
@@ -147,14 +147,14 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          {/* <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Don&apos;t have an account?{" "}
               <button className="font-medium text-blue-600 hover:text-blue-500">
                 Contact Administrator
               </button>
             </p>
-          </div>
+          </div> */}
         </div>
 
         <div className="mt-8 text-center">

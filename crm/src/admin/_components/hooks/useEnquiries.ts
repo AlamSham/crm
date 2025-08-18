@@ -21,7 +21,6 @@ export const useEnquiries = () => {
     fetch: s.fetch,
     update: s.update,
     create: s.create,
-    convert: s.convert,
     remove: s.remove,
   }
 }

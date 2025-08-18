@@ -17,7 +17,7 @@ export default function CatalogItems() {
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<CatalogItem | null>(null)
   const [editSaving, setEditSaving] = useState(false)
-  const [editForm, setEditForm] = useState<{ title: string; price?: string; status: 'active' | 'archived'; image?: File; imagePreview?: string; pdf?: File; pdfName?: string }>({ title: '', status: 'active' })
+  const [editForm, setEditForm] = useState<{ title: string; price?: string; status: 'pending' | 'active' | 'archived'; image?: File; imagePreview?: string; pdf?: File; pdfName?: string }>({ title: '', status: 'active' })
   const [formUploadType, setFormUploadType] = useState<'image' | 'pdf'>('image')
   const [editUploadType, setEditUploadType] = useState<'image' | 'pdf'>('image')
 
@@ -97,9 +97,10 @@ export default function CatalogItems() {
                   <label className="block text-sm font-medium mb-1">Status</label>
                   <select
                     value={editForm.status}
-                    onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as 'active' | 'archived' }))}
+                    onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as 'pending' | 'active' | 'archived' }))}
                     className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
+                    <option value="pending">pending</option>
                     <option value="active">active</option>
                     <option value="archived">archived</option>
                   </select>
@@ -237,9 +238,13 @@ export default function CatalogItems() {
                   </td>
                   <td className="p-2">{it.price ?? '-'}</td>
                   <td className="p-2">
-                    <span className={`px-2 py-1 rounded-full text-xs ${it.status === 'active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {it.status}
-                    </span>
+                    {it.status === 'pending' ? (
+                      <span className="px-2 py-1 rounded-full text-xs bg-yellow-50 text-yellow-700">pending</span>
+                    ) : (
+                      <span className={`px-2 py-1 rounded-full text-xs ${it.status === 'active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {it.status}
+                      </span>
+                    )}
                   </td>
                   <td className="p-2 text-gray-500">{new Date(it.updatedAt).toLocaleString()}</td>
                   <td className="p-2">
@@ -250,7 +255,7 @@ export default function CatalogItems() {
                           setEditForm({
                             title: it.title || '',
                             price: typeof it.price === 'number' ? String(it.price) : '',
-                            status: (it.status as 'active' | 'archived') || 'active',
+                            status: (it.status as 'pending' | 'active' | 'archived') || 'active',
                             imagePreview: it.images?.[0]?.url,
                           })
                           setEditUploadType((it.files && it.files.length > 0) ? 'pdf' : 'image')
@@ -260,6 +265,21 @@ export default function CatalogItems() {
                       >
                         Edit
                       </button>
+                      {it.status === 'pending' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const approved = await catalogApi.approveItem(it._id!)
+                              setItems((prev) => prev.map((p) => (p._id === approved._id ? approved : p)))
+                            } catch (e: any) {
+                              alert(e?.message || 'Failed to approve item')
+                            }
+                          }}
+                          className="px-2 py-1 rounded border text-xs text-green-700 border-green-600"
+                        >
+                          Approve
+                        </button>
+                      )}
                       <button
                         onClick={async () => {
                           if (!confirm('Delete this item?')) return

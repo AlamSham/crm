@@ -11,7 +11,6 @@ const CustomerEnquirySchema = new mongoose.Schema(
     notes: { type: String, trim: true },
     source: { type: String, trim: true },
     assignedTo: { type: String, trim: true },
-    linkedCustomerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
   },
   { timestamps: true }
 );

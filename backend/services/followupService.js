@@ -28,6 +28,48 @@ function replaceVariables(str = "", contact = {}, fromAddress = "") {
     .replace(/\{\{unsubscribeLink\}\}/g, unsubscribeLink)
 }
 
+// Admin: list templates across all users (no userId filter)
+async function getAllTemplates({ page = 1, limit = 10, search = "", type = "", isActive = undefined, approvedOnly = false }) {
+  try {
+    const query = {}
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { subject: { $regex: search, $options: "i" } },
+      ]
+    }
+    if (type) {
+      query.type = type
+    }
+    if (typeof isActive === 'boolean') {
+      query.isActive = isActive
+    }
+    if (approvedOnly) {
+      query.approvedAt = { $ne: null }
+    }
+
+    const templates = await Template.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+
+    const total = await Template.countDocuments(query)
+
+    return {
+      templates,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    }
+  } catch (error) {
+    logger.error("Error fetching all templates:", error)
+    throw error
+  }
+}
+
 // Send queued Emails whose scheduledAt is due
 async function processDueEmails() {
   try {
@@ -547,7 +589,7 @@ async function createTemplate(templateData) {
   }
 }
 
-async function getTemplates(userId, { page = 1, limit = 10, search = "", type = "" }) {
+async function getTemplates(userId, { page = 1, limit = 10, search = "", type = "", isActive = undefined, approvedOnly = false }) {
   try {
     const query = { userId }
     
@@ -560,6 +602,12 @@ async function getTemplates(userId, { page = 1, limit = 10, search = "", type = 
     
     if (type) {
       query.type = type
+    }
+    if (typeof isActive === 'boolean') {
+      query.isActive = isActive
+    }
+    if (approvedOnly) {
+      query.approvedAt = { $ne: null }
     }
 
     const templates = await Template.find(query)
@@ -1317,6 +1365,7 @@ module.exports = {
   // Template Management
   createTemplate,
   getTemplates,
+  getAllTemplates,
   updateTemplate,
   deleteTemplate,
 

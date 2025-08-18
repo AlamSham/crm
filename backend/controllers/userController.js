@@ -50,9 +50,9 @@ exports.listUsers = async (req, res) => {
 // Create user
 exports.createUser = async (req, res) => {
   try {
-    const { name, email, role, active, password, isFollowUpPerson, isEmailAccess } = req.body;
-    if (!name || !email || !role) {
-      return res.status(400).json({ message: 'name, email and role are required' });
+    const { name, email, active, password, isLeadAccess, isCatalogAccess, isTemplateAccess } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ message: 'name and email are required' });
     }
     if (!password || String(password).length < 6) {
       return res.status(400).json({ message: 'password (min 6 chars) is required' });
@@ -98,11 +98,12 @@ exports.createUser = async (req, res) => {
     const user = await User.create({
       name,
       email,
-      role,
+      role: 'Merchandiser',
       active,
       password: hashed,
-      isFollowUpPerson: typeof isFollowUpPerson === 'string' ? isFollowUpPerson === 'true' : !!isFollowUpPerson,
-      isEmailAccess: typeof isEmailAccess === 'string' ? isEmailAccess === 'true' : !!isEmailAccess,
+      isLeadAccess: typeof isLeadAccess === 'string' ? isLeadAccess === 'true' : !!isLeadAccess,
+      isCatalogAccess: typeof isCatalogAccess === 'string' ? isCatalogAccess === 'true' : !!isCatalogAccess,
+      isTemplateAccess: typeof isTemplateAccess === 'string' ? isTemplateAccess === 'true' : !!isTemplateAccess,
       avatar: avatarUrl || undefined,
     });
     const safe = user.toObject();
@@ -128,17 +129,21 @@ exports.getUser = async (req, res) => {
 // Update user
 exports.updateUser = async (req, res) => {
   try {
-    const { name, role, active, password, isFollowUpPerson, isEmailAccess } = req.body;
+    const { name, active, password, isLeadAccess, isCatalogAccess, isTemplateAccess } = req.body;
 
     const update = { };
     if (typeof name !== 'undefined') update.name = name;
-    if (typeof role !== 'undefined') update.role = role;
+    // role is fixed as 'Merchandiser' and not updatable via API
     if (typeof active !== 'undefined') update.active = active;
-    if (typeof isFollowUpPerson !== 'undefined') {
-      update.isFollowUpPerson = typeof isFollowUpPerson === 'string' ? isFollowUpPerson === 'true' : !!isFollowUpPerson;
+    // removed: isFollowUpPerson, isEmailAccess
+    if (typeof isLeadAccess !== 'undefined') {
+      update.isLeadAccess = typeof isLeadAccess === 'string' ? isLeadAccess === 'true' : !!isLeadAccess;
     }
-    if (typeof isEmailAccess !== 'undefined') {
-      update.isEmailAccess = typeof isEmailAccess === 'string' ? isEmailAccess === 'true' : !!isEmailAccess;
+    if (typeof isCatalogAccess !== 'undefined') {
+      update.isCatalogAccess = typeof isCatalogAccess === 'string' ? isCatalogAccess === 'true' : !!isCatalogAccess;
+    }
+    if (typeof isTemplateAccess !== 'undefined') {
+      update.isTemplateAccess = typeof isTemplateAccess === 'string' ? isTemplateAccess === 'true' : !!isTemplateAccess;
     }
     if (typeof password !== 'undefined' && String(password).length >= 6) {
       update.password = await bcrypt.hash(String(password), 10);
@@ -167,63 +172,91 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// Grant email access (set isEmailAccess = true)
-exports.grantEmailAccess = async (req, res) => {
+
+// Grant/Revoke Lead access
+exports.grantLeadAccess = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isEmailAccess = true;
+    user.isLeadAccess = true;
     await user.save();
     const safe = user.toObject();
     delete safe.password;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to grant email access', error: err.message });
+    res.status(500).json({ message: 'Failed to grant lead access', error: err.message });
   }
 };
 
-// Revoke email access (set isEmailAccess = false)
-exports.revokeEmailAccess = async (req, res) => {
+exports.revokeLeadAccess = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isEmailAccess = false;
+    user.isLeadAccess = false;
     await user.save();
     const safe = user.toObject();
     delete safe.password;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to revoke email access', error: err.message });
+    res.status(500).json({ message: 'Failed to revoke lead access', error: err.message });
   }
 };
 
-// Grant follow-up person access (set isFollowUpPerson = true)
-exports.grantFollowUpPerson = async (req, res) => {
+// Grant/Revoke Catalog access
+exports.grantCatalogAccess = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isFollowUpPerson = true;
+    user.isCatalogAccess = true;
     await user.save();
     const safe = user.toObject();
     delete safe.password;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to grant follow-up access', error: err.message });
+    res.status(500).json({ message: 'Failed to grant catalog access', error: err.message });
   }
 };
 
-// Revoke follow-up person access (set isFollowUpPerson = false)
-exports.revokeFollowUpPerson = async (req, res) => {
+exports.revokeCatalogAccess = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isFollowUpPerson = false;
+    user.isCatalogAccess = false;
     await user.save();
     const safe = user.toObject();
     delete safe.password;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to revoke follow-up access', error: err.message });
+    res.status(500).json({ message: 'Failed to revoke catalog access', error: err.message });
+  }
+};
+
+// Grant/Revoke Template access
+exports.grantTemplateAccess = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.isTemplateAccess = true;
+    await user.save();
+    const safe = user.toObject();
+    delete safe.password;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to grant template access', error: err.message });
+  }
+};
+
+exports.revokeTemplateAccess = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.isTemplateAccess = false;
+    await user.save();
+    const safe = user.toObject();
+    delete safe.password;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to revoke template access', error: err.message });
   }
 };
 

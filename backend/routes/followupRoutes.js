@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const followupController = require('../controllers/followupController')
-const authMiddleware = require('../middleware/authMiddleware')
+const { verifyAccessToken } = require('../middleware/authMiddleware')
 
 // Apply authentication middleware to all routes
 // router.use(authMiddleware)
@@ -29,8 +29,12 @@ router.delete('/contact-lists/:listId', followupController.deleteContactList)
 // Template Routes
 router.post('/templates', followupController.createTemplate)
 router.get('/templates', followupController.getTemplates)
+// Admin: list pending templates (place before /templates/:templateId)
+router.get('/templates/pending', verifyAccessToken, followupController.listPendingTemplatesForAdmin)
 router.put('/templates/:templateId', followupController.updateTemplate)
 router.delete('/templates/:templateId', followupController.deleteTemplate)
+// Admin: approve template
+router.patch('/templates/:templateId/approve', verifyAccessToken, followupController.approveTemplate)
 
 // Follow-up Routes
 router.post('/followups', followupController.createFollowup)

@@ -75,6 +75,7 @@ interface FollowUpContextType {
   createTemplate: (data: CreateTemplateData) => Promise<Template>
   updateTemplate: (id: string, data: Partial<CreateTemplateData>) => Promise<Template>
   deleteTemplate: (id: string) => Promise<void>
+  approveTemplate: (id: string) => Promise<Template>
   loadTemplates: (page?: number, limit?: number) => Promise<void>
   
   // Follow-up actions
@@ -255,6 +256,12 @@ export const FollowUpProvider = ({ children }: FollowUpProviderProps) => {
     return template
   }, [])
   
+  const approveTemplate = useCallback(async (id: string): Promise<Template> => {
+    const template = await templateApi.approve(id)
+    setTemplates(prev => prev.map(t => t._id === id ? template : t))
+    return template
+  }, [])
+  
   const deleteTemplate = useCallback(async (id: string): Promise<void> => {
     await templateApi.delete(id)
     setTemplates(prev => prev.filter(t => t._id !== id))
@@ -374,6 +381,7 @@ export const FollowUpProvider = ({ children }: FollowUpProviderProps) => {
     createTemplate,
     updateTemplate,
     deleteTemplate,
+    approveTemplate,
     loadTemplates,
     
     // Follow-up actions

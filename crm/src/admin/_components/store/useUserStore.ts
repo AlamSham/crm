@@ -16,10 +16,12 @@ interface UserState {
   updateUser: (input: UpdateUserInput) => Promise<User | null>
   deleteUser: (id: string) => Promise<boolean>
   toggleActive: (id: string) => Promise<User | null>
-  grantFollowUp: (id: string) => Promise<User | null>
-  grantEmailAccess: (id: string) => Promise<User | null>
-  revokeFollowUp: (id: string) => Promise<User | null>
-  revokeEmailAccess: (id: string) => Promise<User | null>
+  grantLeadAccess: (id: string) => Promise<User | null>
+  revokeLeadAccess: (id: string) => Promise<User | null>
+  grantCatalogAccess: (id: string) => Promise<User | null>
+  revokeCatalogAccess: (id: string) => Promise<User | null>
+  grantTemplateAccess: (id: string) => Promise<User | null>
+  revokeTemplateAccess: (id: string) => Promise<User | null>
 }
 
 export const useUserStore = create<UserState>((set, get) => ({
@@ -79,39 +81,55 @@ export const useUserStore = create<UserState>((set, get) => ({
     }
   },
 
-  grantFollowUp: async (id) => {
+
+  grantLeadAccess: async (id) => {
     try {
-      const updated = await userService.grantFollowUp(id)
+      const updated = await userService.grantLeadAccess(id)
       set((s) => ({ users: s.users.map((u) => (u._id === id ? updated : u)) }))
       return updated
     } catch {
       return null
     }
   },
-
-  grantEmailAccess: async (id) => {
+  revokeLeadAccess: async (id) => {
     try {
-      const updated = await userService.grantEmailAccess(id)
+      const updated = await userService.revokeLeadAccess(id)
       set((s) => ({ users: s.users.map((u) => (u._id === id ? updated : u)) }))
       return updated
     } catch {
       return null
     }
   },
-
-  revokeFollowUp: async (id) => {
+  grantCatalogAccess: async (id) => {
     try {
-      const updated = await userService.revokeFollowUp(id)
+      const updated = await userService.grantCatalogAccess(id)
       set((s) => ({ users: s.users.map((u) => (u._id === id ? updated : u)) }))
       return updated
     } catch {
       return null
     }
   },
-
-  revokeEmailAccess: async (id) => {
+  revokeCatalogAccess: async (id) => {
     try {
-      const updated = await userService.revokeEmailAccess(id)
+      const updated = await userService.revokeCatalogAccess(id)
+      set((s) => ({ users: s.users.map((u) => (u._id === id ? updated : u)) }))
+      return updated
+    } catch {
+      return null
+    }
+  },
+  grantTemplateAccess: async (id) => {
+    try {
+      const updated = await userService.grantTemplateAccess(id)
+      set((s) => ({ users: s.users.map((u) => (u._id === id ? updated : u)) }))
+      return updated
+    } catch {
+      return null
+    }
+  },
+  revokeTemplateAccess: async (id) => {
+    try {
+      const updated = await userService.revokeTemplateAccess(id)
       set((s) => ({ users: s.users.map((u) => (u._id === id ? updated : u)) }))
       return updated
     } catch {

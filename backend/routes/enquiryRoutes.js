@@ -8,8 +8,6 @@ router.get('/', ctrl.listEnquiries);
 router.post('/', ctrl.createEnquiry);
 // Update
 router.put('/:id', ctrl.updateEnquiry);
-// Convert to customer
-router.post('/:id/convert', ctrl.convertEnquiry);
 // Delete
 router.delete('/:id', ctrl.deleteEnquiry);
 

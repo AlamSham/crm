@@ -24,9 +24,12 @@ const templateSchema = new mongoose.Schema(
       enum: ["initial", "followup1", "followup2", "followup3"],
       default: "initial",
     },
+    // Creator (can be Admin or Merchandiser)
+    createdBy: { type: mongoose.Schema.Types.ObjectId, required: true },
+    createdByRole: { type: String, enum: ["admin", "merch"], required: true },
+    // Backward compatible field if referenced elsewhere
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Admin",
       required: true,
     },
     selectedCatalogItemIds: [
@@ -45,6 +48,8 @@ const templateSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", default: null },
+    approvedAt: { type: Date, default: null },
   },
   {
     timestamps: true,

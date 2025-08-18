@@ -12,7 +12,7 @@ function daysBack(n){ const x=new Date(); x.setDate(x.getDate()-n); x.setHours(0
 
 exports.summary = async (req, res, next) => {
   try {
-    const [customersTotal, customersLast30d, enquiriesTotal, enquiriesToday, enquiriesThisWeek, enquiriesByStatusAgg, recentWindowEnquiriesTotal, recentWindowConversions] = await Promise.all([
+    const [customersTotal, customersLast30d, enquiriesTotal, enquiriesToday, enquiriesThisWeek, enquiriesByStatusAgg, recentWindowEnquiriesTotal] = await Promise.all([
       Customer.countDocuments({}),
       Customer.countDocuments({ createdAt: { $gte: daysBack(30) } }),
       Enquiry.countDocuments({}),
@@ -22,7 +22,6 @@ exports.summary = async (req, res, next) => {
         { $group: { _id: '$status', count: { $sum: 1 } } },
       ]),
       Enquiry.countDocuments({ createdAt: { $gte: daysBack(30) } }),
-      Enquiry.countDocuments({ createdAt: { $gte: daysBack(30) }, linkedCustomerId: { $ne: null } }),
     ]);
 
     // Overdue open enquiries (>7 days, not Closed)
@@ -32,7 +31,7 @@ exports.summary = async (req, res, next) => {
     });
 
     const enquiriesByStatus = enquiriesByStatusAgg.reduce((acc, it) => { acc[it._id||'Unknown'] = it.count; return acc; }, {});
-    const conversionRate = recentWindowEnquiriesTotal ? +(recentWindowConversions / recentWindowEnquiriesTotal * 100).toFixed(2) : 0;
+    const conversionRate = 0;
 
     res.json({
       customers: { total: customersTotal, last30d: customersLast30d },
@@ -135,33 +134,7 @@ exports.timeseries = async (req, res, next) => {
       }
     ]);
 
-    // Conversion by source (last 90 days)
-    const start90 = daysBack(90);
-    const convBySourceAgg = await Enquiry.aggregate([
-      { $match: { createdAt: { $gte: start90 } } },
-      { $group: {
-          _id: '$source',
-          total: { $sum: 1 },
-          converted: { $sum: { $cond: [{ $ne: ['$linkedCustomerId', null] }, 1, 0] } }
-        }
-      },
-      { $sort: { total: -1 } },
-      { $limit: 8 }
-    ]);
-
-    // Conversion by product (last 90 days)
-    const convByProductAgg = await Enquiry.aggregate([
-      { $match: { createdAt: { $gte: start90 } } },
-      { $unwind: { path: '$products', preserveNullAndEmptyArrays: false } },
-      { $group: {
-          _id: '$products',
-          total: { $sum: 1 },
-          converted: { $sum: { $cond: [{ $ne: ['$linkedCustomerId', null] }, 1, 0] } }
-        }
-      },
-      { $sort: { total: -1 } },
-      { $limit: 8 }
-    ]);
+    // Previously: conversion by source/product used linkedCustomerId; removed due to decoupling
 
     // Team performance (assignedTo)
     const teamPerformance = await Enquiry.aggregate([
@@ -184,8 +157,8 @@ exports.timeseries = async (req, res, next) => {
       followupsMonthly: { scheduled: followupsMonthlyScheduled, sent: followupsMonthlySent }, 
       catalogMonthly,
       ageingBuckets: openEnquiries,
-      conversionBySource: convBySourceAgg,
-      conversionByProduct: convByProductAgg,
+      conversionBySource: [],
+      conversionByProduct: [],
       teamPerformance,
     });
   } catch (err) { next(err); }

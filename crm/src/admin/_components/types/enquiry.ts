@@ -12,7 +12,6 @@ export interface CustomerEnquiry {
   notes?: string
   source?: string
   assignedTo?: string
-  linkedCustomerId?: string
   createdAt?: string
   updatedAt?: string
 }

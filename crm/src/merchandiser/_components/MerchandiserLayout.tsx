@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   FiGrid,  FiCalendar, 
-  FiChevronLeft, FiMenu, FiBell, FiSearch,
+  FiChevronLeft, FiMenu,
   FiLogOut, FiHelpCircle, FiUsers, FiLock,
   FiLayers, FiCheckCircle, FiPlus
 } from 'react-icons/fi';
+import merchAxios from '@/lib/merchAxios'
+import useMerchAuthStore from '@/store/useMerchAuthStore'
 
 const MerchandiserLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useMerchAuthStore()
+  const hasPermission = useMerchAuthStore((s) => s.hasPermission)
+  const user = useMerchAuthStore((s) => s.user)
 
   // Close mobile sidebar when route changes
   useEffect(() => {
@@ -28,15 +34,20 @@ const MerchandiserLayout = () => {
 
   const navLinks = [
     { name: 'Dashboard', icon: <FiGrid size={20} />, path: '/merchandiser/merchandiserDashboard' },
-    { name: 'Lead', icon: <FiUsers size={20} />, path: '/merchandiser/lead' },
-    { name: 'Template', icon: <FiCheckCircle size={20} />, path: '/merchandiser/template' },
+    { name: 'Lead', icon: <FiUsers size={20} />, path: '/merchandiser/lead', permissionKey: 'lead' },
+    { name: 'Template', icon: <FiCheckCircle size={20} />, path: '/merchandiser/template', permissionKey: 'template' },
     { name: 'Event Creation', icon: <FiCalendar size={20} />, path: '/merchandiser/event' },
     // { name: 'Auto Responses', icon: <FiMail size={20} />, path: '/merchandiser/auto-responses' },
     // { name: 'Scheduled Comms', icon: <FiClock size={20} />, path: '/merchandiser/scheduled-communications' },
     // { name: 'Catalog Upload', icon: <FiUpload size={20} />, path: '/merchandiser/catalog-upload' },
-    { name: 'New Catalog', icon: <FiPlus size={20} />, path: '/merchandiser/catlog' },
-    { name: 'Customer Categories', icon: <FiLayers size={20} />, path: '/merchandiser/customer-categories' },
-  ];
+    { name: 'New Catalog', icon: <FiPlus size={20} />, path: '/merchandiser/catalog', permissionKey: 'catalog' },
+    // { name: 'Customer Categories', icon: <FiLayers size={20} />, path: '/merchandiser/customer-categories' },
+  ] as const;
+
+  const visibleLinks = navLinks.filter((l: any) => {
+    if (!('permissionKey' in l)) return true;
+    return hasPermission(l.permissionKey as any);
+  })
 
   const getPageTitle = () => {
     const currentLink = navLinks.find(link => link.path === location.pathname);
@@ -80,7 +91,7 @@ const MerchandiserLayout = () => {
           <div className="flex-1 overflow-y-auto">
             <nav className="px-2 py-4">
               <ul className="space-y-1">
-                {navLinks.map((link) => (
+                {visibleLinks.map((link) => (
                   <li key={link.name}>
                     <Link
                       to={link.path}
@@ -134,30 +145,16 @@ const MerchandiserLayout = () => {
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="relative hidden md:block">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="text-gray-400" size={18} />
-              </div>
-              <input
-                type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                placeholder="Search..."
-              />
-            </div>
-            
-            <button className="rounded-full p-2 text-gray-500 hover:bg-gray-100 relative">
-              <FiBell size={20} />
-              <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
-            </button>
-            
             <div className="relative">
               <button 
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                 className="flex items-center space-x-2 focus:outline-none"
               >
-                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">MU</div>
-                <span className="hidden text-sm font-medium text-gray-700 md:block">
-                  Merchandiser
+                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
+                  {((user?.email || 'u')[0] || 'U').toUpperCase()}
+                </div>
+                <span className="hidden text-sm font-medium text-gray-700 md:block truncate max-w-[160px]">
+                  {user?.email || 'Merchandiser'}
                 </span>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -203,15 +200,30 @@ const MerchandiserLayout = () => {
                     </div>
                   </a>
                   <div className="border-t border-gray-200 my-1"></div>
-                  <a
-                    href="#"
-                    className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                  <button
+                    onClick={async () => {
+                      try { await merchAxios.post('/logout') } catch {}
+                      try {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                        if (typeof document !== 'undefined') {
+                          document.cookie.split(';').forEach((c) => {
+                            const name = c.split('=')[0]?.trim();
+                            if (name) document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+                          });
+                        }
+                      } catch {}
+                      logout();
+                      setUserDropdownOpen(false);
+                      navigate('/merchandiser');
+                    }}
+                    className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                   >
                     <div className="flex items-center">
                       <FiLogOut className="mr-2" size={16} />
                       Sign out
                     </div>
-                  </a>
+                  </button>
                 </div>
               )}
             </div>

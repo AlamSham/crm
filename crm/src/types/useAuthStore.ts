@@ -28,7 +28,7 @@ const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('accessToken')
     localStorage.removeItem('adminId')
     set({ accessToken: null, adminId: null, isAuthenticated: false })
-    window.location.href = '/login'
+    window.location.href = '/'
   },
 
   refreshToken: async () => {
@@ -45,7 +45,7 @@ const useAuthStore = create<AuthState>((set) => ({
       // On failure, clear auth and redirect to login
       localStorage.removeItem('accessToken')
       set({ accessToken: null, isAuthenticated: false })
-      window.location.href = '/login'
+      window.location.href = '/'
       return null
     }
   },
