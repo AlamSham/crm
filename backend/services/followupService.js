@@ -108,6 +108,9 @@ async function processDueEmails() {
         email.status = 'sent'
         email.sentAt = new Date()
         email.messageId = result.messageId
+        // Generate and set tracking pixel id to satisfy EmailTracking schema
+        const trackingPixelId = `track_${email._id}_${Date.now()}`
+        email.trackingPixelId = trackingPixelId
         await email.save()
 
         // tracking doc
@@ -115,9 +118,7 @@ async function processDueEmails() {
           emailId: email._id,
           campaignId: email.campaignId?._id || email.campaignId,
           contactId: contact._id,
-          userId: email.userId,
-          status: 'sent',
-          sentAt: email.sentAt,
+          trackingPixelId: trackingPixelId,
         })
         await tracking.save()
       } catch (err) {
