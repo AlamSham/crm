@@ -31,6 +31,8 @@ const emailSchema = new mongoose.Schema(
       enum: ["queued", "sending", "sent", "delivered", "bounced", "failed"],
       default: "queued",
     },
+    // When the email should be sent (used for sequence/scheduling)
+    scheduledAt: Date,
     sentAt: Date,
     deliveredAt: Date,
     openedAt: Date,
@@ -62,5 +64,7 @@ const emailSchema = new mongoose.Schema(
 
 emailSchema.index({ campaignId: 1, contactId: 1 })
 emailSchema.index({ trackingPixelId: 1 })
+// For efficient due-email scans: find queued emails by time
+emailSchema.index({ status: 1, scheduledAt: 1 })
 
 module.exports = mongoose.model("Email", emailSchema)

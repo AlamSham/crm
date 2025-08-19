@@ -6,9 +6,9 @@ export interface Campaign {
   template: string
   contacts: string[]
   contactLists: string[]
-  scheduledAt?: Date
-  startedAt?: Date
-  completedAt?: Date
+  scheduledAt?: string | Date
+  startedAt?: string | Date
+  completedAt?: string | Date
   sendType: 'immediate' | 'scheduled' | 'sequence'
   sequence?: {
     initialDelay: number // hours
@@ -19,6 +19,15 @@ export interface Campaign {
       clickLink: boolean
       replyEmail: boolean
     }
+    steps?: Array<{
+      delayHours: number
+      templateId: string
+      conditions?: {
+        requireOpen?: boolean
+        requireClick?: boolean
+        requireNoReply?: boolean
+      }
+    }>
   }
   stats: {
     totalSent: number
@@ -28,8 +37,8 @@ export interface Campaign {
     unsubscribed: number
   }
   userId: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
 export interface Contact {
@@ -43,8 +52,8 @@ export interface Contact {
   engagementScore: number
   tags: string[]
   userId: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
 export interface ContactList {
@@ -54,8 +63,8 @@ export interface ContactList {
   contacts: Contact[]
   totalContacts: number
   userId: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
 export interface Template {
@@ -75,9 +84,9 @@ export interface Template {
   createdBy?: string
   createdByRole?: 'admin' | 'merch'
   approvedBy?: string | null
-  approvedAt?: Date | null
-  createdAt: Date
-  updatedAt: Date
+  approvedAt?: string | Date | null
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
 export interface FollowUp {
@@ -86,12 +95,12 @@ export interface FollowUp {
   contactId: string
   templateId: string
   status: 'pending' | 'sent' | 'opened' | 'clicked' | 'bounced'
-  sentAt?: Date
-  openedAt?: Date
-  clickedAt?: Date
+  sentAt?: string | Date
+  openedAt?: string | Date
+  clickedAt?: string | Date
   userId: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
 export interface Email {
@@ -101,17 +110,17 @@ export interface Email {
   htmlContent: string
   textContent: string
   status: 'pending' | 'sent' | 'delivered' | 'bounced'
-  sentAt?: Date
-  deliveredAt?: Date
+  sentAt?: string | Date
+  deliveredAt?: string | Date
   userId: string
-  createdAt: Date
+  createdAt: string | Date
 }
 
 export interface EmailTracking {
   _id: string
   emailId: string
   event: 'sent' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'unsubscribed'
-  timestamp: Date
+  timestamp: string | Date
   ipAddress?: string
   userAgent?: string
   userId: string
@@ -140,7 +149,7 @@ export interface CreateCampaignData {
   contacts?: string[]
   contactLists?: string[]
   sendType: 'immediate' | 'scheduled' | 'sequence'
-  scheduledAt?: Date
+  scheduledAt?: string | Date
   sequence?: {
     initialDelay: number
     followupDelays: number[]
@@ -150,6 +159,15 @@ export interface CreateCampaignData {
       clickLink: boolean
       replyEmail: boolean
     }
+    steps?: Array<{
+      delayHours: number
+      templateId: string
+      conditions?: {
+        requireOpen?: boolean
+        requireClick?: boolean
+        requireNoReply?: boolean
+      }
+    }>
   }
 }
 
@@ -165,8 +183,8 @@ export interface CreateContactData {
 export interface CreateTemplateData {
   name: string
   subject: string
-  htmlContent: string
-  textContent: string
+  htmlContent?: string
+  textContent?: string
   type: 'initial' | 'followup1' | 'followup2' | 'followup3'
   isActive?: boolean
   variables?: string[]

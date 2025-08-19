@@ -7,12 +7,11 @@ import {
   PlusOutlined, 
   EditOutlined, 
   DeleteOutlined, 
-  EyeOutlined, 
+
   CopyOutlined,
   FileTextOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined,
-  ExclamationCircleOutlined
+
 } from '@ant-design/icons'
 import { useFollowUpContext } from './hooks/use-follow-up'
 import { catalogApi } from '../catalog/libs/catalog-api'
@@ -123,14 +122,7 @@ export default function FollowUpTemplates() {
       key: 'actions',
       render: (record: Template) => (
         <Space>
-          <Tooltip title="Preview Template">
-            <Button 
-              type="text" 
-              size="small" 
-              icon={<EyeOutlined />}
-              onClick={() => handlePreviewTemplate(record)}
-            />
-          </Tooltip>
+       
           
           <Tooltip title="Duplicate Template">
             <Button 
@@ -355,13 +347,24 @@ export default function FollowUpTemplates() {
                 <Form.Item
                   name="htmlContent"
                   label="HTML Content"
-                  rules={[{ required: true, message: 'Please enter HTML content' }]}
+                  rules={[
+                    {
+                      validator: (_: any, value: string) => {
+                        const text = form.getFieldValue('textContent') as string
+                        if ((value && value.trim()) || (text && text.trim())) {
+                          return Promise.resolve()
+                        }
+                        return Promise.reject(new Error('Provide HTML or Text content'))
+                      },
+                    },
+                  ]}
                 >
                   <TextArea 
                     rows={10} 
                     placeholder="Enter HTML content for the email template"
                   />
                 </Form.Item>
+
                 <Typography.Paragraph type="secondary">
                   You can insert the placeholder {'{{CATALOG_BLOCK}}'} in your HTML to place the catalog where you want. If omitted, the catalog will be appended below.
                 </Typography.Paragraph>
@@ -375,7 +378,17 @@ export default function FollowUpTemplates() {
               <Form.Item
                 name="textContent"
                 label="Text Content"
-                rules={[{ required: true, message: 'Please enter text content' }]}
+                rules={[
+                  {
+                    validator: (_: any, value: string) => {
+                      const html = form.getFieldValue('htmlContent') as string
+                      if ((value && value.trim()) || (html && html.trim())) {
+                        return Promise.resolve()
+                      }
+                      return Promise.reject(new Error('Provide HTML or Text content'))
+                    },
+                  },
+                ]}
               >
                 <TextArea 
                   rows={10} 
@@ -388,6 +401,7 @@ export default function FollowUpTemplates() {
             key: 'catalog',
             label: 'Catalog',
             children: (
+              // ...
               <>
                 <label className="ant-form-item-required mb-1 block">Catalog Items</label>
                 <Form.Item name="selectedCatalogItemIds">

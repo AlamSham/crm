@@ -12,7 +12,8 @@ const processScheduledFollowups = cron.schedule('*/5 * * * *', async () => {
     logger.error('Error processing scheduled followups:', error)
   }
 }, {
-  scheduled: false // Don't start automatically
+  scheduled: false, // Don't start automatically
+  timezone: 'Asia/Kolkata'
 })
 
 // Process scheduled campaigns every minute
@@ -25,7 +26,8 @@ const processScheduledCampaigns = cron.schedule('* * * * *', async () => {
     logger.error('Error processing scheduled campaigns:', error)
   }
 }, {
-  scheduled: false
+  scheduled: false,
+  timezone: 'Asia/Kolkata'
 })
 
 // Process due queued emails (sequence items) every minute
@@ -38,7 +40,8 @@ const processDueEmails = cron.schedule('* * * * *', async () => {
     logger.error('Error processing due emails:', error)
   }
 }, {
-  scheduled: false
+  scheduled: false,
+  timezone: 'Asia/Kolkata'
 })
 
 // Start the cron job

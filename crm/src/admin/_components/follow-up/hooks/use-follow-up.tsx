@@ -53,7 +53,6 @@ interface FollowUpContextType {
   updateCampaign: (id: string, data: Partial<CreateCampaignData>) => Promise<Campaign>
   deleteCampaign: (id: string) => Promise<void>
   startCampaign: (id: string) => Promise<Campaign>
-  pauseCampaign: (id: string) => Promise<Campaign>
   loadCampaigns: (page?: number, limit?: number) => Promise<void>
   
   // Contact actions
@@ -67,8 +66,7 @@ interface FollowUpContextType {
   createContactList: (data: CreateContactListData) => Promise<ContactList>
   updateContactList: (id: string, data: Partial<CreateContactListData>) => Promise<ContactList>
   deleteContactList: (id: string) => Promise<void>
-  addContactsToList: (listId: string, contactIds: string[]) => Promise<ContactList>
-  removeContactFromList: (listId: string, contactId: string) => Promise<ContactList>
+  addContactsToList: (listId: string, contactIds: string[]) => Promise<void>
   loadContactLists: (page?: number, limit?: number) => Promise<void>
   
   // Template actions
@@ -144,12 +142,6 @@ export const FollowUpProvider = ({ children }: FollowUpProviderProps) => {
     return campaign
   }, [])
   
-  const pauseCampaign = useCallback(async (id: string): Promise<Campaign> => {
-    const campaign = await campaignApi.pause(id)
-    setCampaigns(prev => prev.map(c => c._id === id ? campaign : c))
-    return campaign
-  }, [])
-  
   const loadCampaigns = useCallback(async (page = 1, limit = 10): Promise<void> => {
     setCampaignsLoading(true)
     try {
@@ -218,18 +210,6 @@ export const FollowUpProvider = ({ children }: FollowUpProviderProps) => {
     setContactLists(prev => prev.filter(cl => cl._id !== id))
   }, [])
   
-  const addContactsToList = useCallback(async (listId: string, contactIds: string[]): Promise<ContactList> => {
-    const contactList = await contactListApi.addContacts(listId, contactIds)
-    setContactLists(prev => prev.map(cl => cl._id === listId ? contactList : cl))
-    return contactList
-  }, [])
-  
-  const removeContactFromList = useCallback(async (listId: string, contactId: string): Promise<ContactList> => {
-    const contactList = await contactListApi.removeContact(listId, contactId)
-    setContactLists(prev => prev.map(cl => cl._id === listId ? contactList : cl))
-    return contactList
-  }, [])
-  
   const loadContactLists = useCallback(async (page = 1, limit = 10): Promise<void> => {
     setContactListsLoading(true)
     try {
@@ -242,6 +222,12 @@ export const FollowUpProvider = ({ children }: FollowUpProviderProps) => {
       setContactListsLoading(false)
     }
   }, [])
+  
+  const addContactsToList = useCallback(async (listId: string, contactIds: string[]): Promise<void> => {
+    await contactListApi.addContacts(listId, contactIds)
+    // Reload the list to reflect changes
+    await loadContactLists()
+  }, [loadContactLists])
   
   // Template actions
   const createTemplate = useCallback(async (data: CreateTemplateData): Promise<Template> => {
@@ -296,7 +282,7 @@ export const FollowUpProvider = ({ children }: FollowUpProviderProps) => {
   
   const loadFollowUpsByCampaign = useCallback(async (campaignId: string): Promise<FollowUp[]> => {
     try {
-      const followUps = await followUpApi.getByCampaign(campaignId)
+      const { followUps } = await followUpApi.getAll(1, 100, "", campaignId)
       return followUps
     } catch (error) {
       console.error('Failed to load follow-ups by campaign:', error)
@@ -359,7 +345,6 @@ export const FollowUpProvider = ({ children }: FollowUpProviderProps) => {
     updateCampaign,
     deleteCampaign,
     startCampaign,
-    pauseCampaign,
     loadCampaigns,
     
     // Contact actions
@@ -374,7 +359,6 @@ export const FollowUpProvider = ({ children }: FollowUpProviderProps) => {
     updateContactList,
     deleteContactList,
     addContactsToList,
-    removeContactFromList,
     loadContactLists,
     
     // Template actions

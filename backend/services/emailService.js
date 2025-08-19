@@ -2,6 +2,7 @@ const Imap = require("imap")
 const nodemailer = require("nodemailer")
 const { simpleParser } = require("mailparser")
 const emailConfig = require("../config/emailConfig")
+const logger = require("../utils/logger")
 
 // Mock email data for development
 const mockEmails = [
@@ -678,7 +679,9 @@ async function fetchReceivedMails({ page = 1, limit = 10, search = "" }) {
 
 // Use a pooled transport to improve throughput and reuse connections
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: emailConfig.smtpHost || "smtp.gmail.com",
+  port: emailConfig.smtpPort || 465,
+  secure: (emailConfig.smtpPort || 465) === 465, // true for 465, false for 587
   pool: true,
   maxConnections: 5,
   maxMessages: 100,
@@ -686,7 +689,29 @@ const transporter = nodemailer.createTransport({
     user: emailConfig.user,
     pass: emailConfig.password,
   },
+  tls: { rejectUnauthorized: false },
 })
+
+// Verify transporter on startup for better diagnostics
+try {
+  transporter.verify((err, success) => {
+    if (err) {
+      logger.error("SMTP transporter verification failed:", {
+        error: err.message,
+        host: emailConfig.smtpHost,
+        port: emailConfig.smtpPort,
+        user: emailConfig.user ? "Set" : "Not set",
+      })
+    } else {
+      logger.info("SMTP transporter is ready", {
+        host: emailConfig.smtpHost,
+        port: emailConfig.smtpPort,
+      })
+    }
+  })
+} catch (e) {
+  logger.error("Error verifying SMTP transporter:", { error: e.message })
+}
 
 async function sendEmail({ to, cc, bcc, subject, text, html, attachments }) {
   try {
@@ -700,6 +725,7 @@ async function sendEmail({ to, cc, bcc, subject, text, html, attachments }) {
 
     const mailOptions = {
       from: emailConfig.user,
+      replyTo: emailConfig.user,
       to,
       cc: cc || "",
       bcc: bcc || "",
@@ -717,6 +743,12 @@ async function sendEmail({ to, cc, bcc, subject, text, html, attachments }) {
 
     const info = await transporter.sendMail(mailOptions)
     console.log('Email sent successfully:', info.messageId);
+    logger.info("SMTP send result", {
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response,
+    })
     return info
   } catch (error) {
     console.error('Error sending email:', {

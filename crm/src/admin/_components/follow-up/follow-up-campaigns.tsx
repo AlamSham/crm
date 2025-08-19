@@ -9,7 +9,6 @@ import {
   PauseCircleOutlined, 
   EditOutlined, 
   DeleteOutlined, 
-  EyeOutlined, 
   BarChartOutlined,
   MailOutlined,
   CalendarOutlined,
@@ -21,6 +20,35 @@ import type { Campaign } from './types/follow-up'
 const { Title, Text } = Typography
 const { Option } = Select
 const { TextArea } = Input
+
+// Helpers to handle IST (Asia/Kolkata) timezone consistently
+// 1) Format a Date/ISO string to datetime-local (YYYY-MM-DDTHH:mm) in IST
+function formatDateTimeIST(date: string | Date): string {
+  const d = new Date(date)
+  // Convert UTC -> IST by adding 5h30m
+  const IST_OFFSET_MIN = 5 * 60 + 30
+  const ms = d.getTime() + IST_OFFSET_MIN * 60 * 1000
+  const ist = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const yyyy = ist.getUTCFullYear()
+  const mm = pad(ist.getUTCMonth() + 1)
+  const dd = pad(ist.getUTCDate())
+  const hh = pad(ist.getUTCHours())
+  const mi = pad(ist.getUTCMinutes())
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`
+}
+
+// 2) Parse a datetime-local string (interpreted as IST) into a UTC Date object
+function parseISTLocalToUTC(local: string): Date {
+  // local format: YYYY-MM-DDTHH:mm
+  const [datePart, timePart] = local.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+  // Build a Date in UTC corresponding to the IST time by subtracting 5h30m
+  const IST_OFFSET_MIN = 5 * 60 + 30
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute) - IST_OFFSET_MIN * 60 * 1000
+  return new Date(utcMs)
+}
 
 export default function FollowUpCampaigns() {
   const { 
@@ -34,7 +62,6 @@ export default function FollowUpCampaigns() {
     updateCampaign,
     deleteCampaign,
     startCampaign,
-    pauseCampaign
   } = useFollowUpContext()
 
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
@@ -147,15 +174,6 @@ export default function FollowUpCampaigns() {
       key: 'actions',
       render: (record: Campaign) => (
         <Space>
-          <Tooltip title="View Details">
-            <Button 
-              type="text" 
-              size="small" 
-              icon={<EyeOutlined />}
-              onClick={() => handleViewCampaign(record)}
-            />
-          </Tooltip>
-          
           {record.status === 'draft' && (
             <Tooltip title="Start Campaign">
               <Button 
@@ -163,17 +181,6 @@ export default function FollowUpCampaigns() {
                 size="small" 
                 icon={<PlayCircleOutlined />}
                 onClick={() => handleStartCampaign(record._id)}
-              />
-            </Tooltip>
-          )}
-          
-          {(record.status === 'sending' || record.status === 'scheduled') && (
-            <Tooltip title="Pause Campaign">
-              <Button 
-                type="text" 
-                size="small" 
-                icon={<PauseCircleOutlined />}
-                onClick={() => handlePauseCampaign(record._id)}
               />
             </Tooltip>
           )}
@@ -222,7 +229,8 @@ export default function FollowUpCampaigns() {
       contacts: campaign.contacts,
       contactLists: campaign.contactLists,
       sendType: campaign.sendType,
-      scheduledAt: campaign.scheduledAt,
+      // Convert stored Date/ISO -> datetime-local (IST)
+      scheduledAt: campaign.scheduledAt ? formatDateTimeIST(campaign.scheduledAt) : undefined,
       sequence: campaign.sequence,
     })
     setIsEditModalVisible(true)
@@ -246,20 +254,6 @@ export default function FollowUpCampaigns() {
     }
   }
 
-  const handlePauseCampaign = async (campaignId: string) => {
-    try {
-      await pauseCampaign(campaignId)
-      // Success message could be added here
-    } catch (error) {
-      console.error('Failed to pause campaign:', error)
-    }
-  }
-
-  const handleViewCampaign = (campaign: Campaign) => {
-    // TODO: Implement campaign details view
-    console.log('View campaign:', campaign)
-  }
-
   const handleCreateSubmit = async (values: any) => {
     try {
       setCreateSubmitting(true)
@@ -270,7 +264,8 @@ export default function FollowUpCampaigns() {
         contacts: values.contacts || [],
         contactLists: values.contactLists || [],
         sendType: values.sendType,
-        scheduledAt: values.scheduledAt,
+        // Parse IST input -> UTC Date object
+        scheduledAt: values.scheduledAt ? parseISTLocalToUTC(values.scheduledAt) : undefined,
         sequence: values.sequence,
       })
       setIsCreateModalVisible(false)
@@ -294,7 +289,8 @@ export default function FollowUpCampaigns() {
         contacts: values.contacts || [],
         contactLists: values.contactLists || [],
         sendType: values.sendType,
-        scheduledAt: values.scheduledAt,
+        // Parse IST input -> UTC Date object
+        scheduledAt: values.scheduledAt ? parseISTLocalToUTC(values.scheduledAt) : undefined,
         sequence: values.sequence,
       })
       setIsEditModalVisible(false)
@@ -330,6 +326,18 @@ export default function FollowUpCampaigns() {
           rows={3} 
           placeholder="Enter campaign description"
         />
+      </Form.Item>
+
+      <Form.Item
+        name="sendType"
+        label="Send Type"
+        rules={[{ required: true, message: 'Please select send type' }]}
+      >
+        <Select placeholder="Select send type">
+          <Option value="immediate">Send Immediately</Option>
+          <Option value="scheduled">Schedule for Later</Option>
+          <Option value="sequence">Follow-up Sequence</Option>
+        </Select>
       </Form.Item>
 
       <Form.Item
@@ -384,17 +392,7 @@ export default function FollowUpCampaigns() {
         </Select>
       </Form.Item>
 
-      <Form.Item
-        name="sendType"
-        label="Send Type"
-        rules={[{ required: true, message: 'Please select send type' }]}
-      >
-        <Select placeholder="Select send type">
-          <Option value="immediate">Send Immediately</Option>
-          <Option value="scheduled">Schedule for Later</Option>
-          <Option value="sequence">Follow-up Sequence</Option>
-        </Select>
-      </Form.Item>
+      
 
       <Form.Item
         noStyle

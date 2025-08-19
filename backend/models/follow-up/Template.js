@@ -12,7 +12,7 @@ const templateSchema = new mongoose.Schema(
     },
     htmlContent: {
       type: String,
-      required: true,
+      required: false,
     },
     textContent: String,
     variables: {

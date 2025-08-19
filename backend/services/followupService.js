@@ -136,6 +136,7 @@ async function processDueEmails() {
 async function processScheduledCampaigns() {
   try {
     const now = new Date()
+    logger.info('Processing scheduled campaigns', { nowISO: now.toISOString() })
     const campaigns = await Campaign.find({
       status: 'scheduled',
       scheduledAt: { $lte: now },
@@ -144,11 +145,27 @@ async function processScheduledCampaigns() {
       .populate('contacts')
       .populate('contactLists')
 
+    logger.info('Scheduled campaigns due', { count: campaigns.length })
+
     for (const campaign of campaigns) {
       try {
+        const contactListCounts = (campaign.contactLists || []).map((l) => (l.contacts || []).length)
+        logger.info('Sending scheduled campaign', {
+          campaignId: campaign._id?.toString(),
+          userId: campaign.userId?.toString?.() || campaign.userId,
+          name: campaign.name,
+          scheduledAtISO: campaign.scheduledAt ? new Date(campaign.scheduledAt).toISOString() : null,
+          directContacts: (campaign.contacts || []).length,
+          contactLists: (campaign.contactLists || []).length,
+          contactListCounts,
+        })
         // Trigger the same immediate send flow
-        await sendCampaignEmails(campaign._id, campaign.userId)
-        logger.info(`Scheduled campaign sent: ${campaign._id}`)
+        const result = await sendCampaignEmails(campaign._id, campaign.userId)
+        logger.info('Scheduled campaign completed', {
+          campaignId: campaign._id?.toString(),
+          finalStatus: result?.status,
+          sentAtISO: result?.sentAt ? new Date(result.sentAt).toISOString() : null,
+        })
       } catch (err) {
         logger.error('Error sending scheduled campaign:', { campaignId: campaign._id, error: err.message })
       }
@@ -1048,6 +1065,13 @@ async function sendCampaignEmails(campaignId, userId) {
       index === self.findIndex(c => c._id.toString() === contact._id.toString())
     )
 
+    logger.info('Immediate/scheduled send starting', {
+      campaignId: campaign._id?.toString(),
+      userId: campaign.userId?.toString?.() || campaign.userId,
+      totalContacts: contacts.length,
+      uniqueContacts: uniqueContacts.length,
+    })
+
     // Send emails immediately
     const emailPromises = uniqueContacts.map(async (contact) => {
       try {
@@ -1067,6 +1091,7 @@ async function sendCampaignEmails(campaignId, userId) {
         })
 
         await email.save()
+        logger.info('Email record created (immediate path)', { emailId: email._id?.toString(), contact: contact.email })
 
         // Send email immediately
         const emailResult = await emailService.sendEmail({
@@ -1081,9 +1106,23 @@ async function sendCampaignEmails(campaignId, userId) {
         email.messageId = emailResult.messageId
         await email.save()
 
+        logger.info('SMTP send result (immediate path)', {
+          emailId: email._id?.toString(),
+          contact: contact.email,
+          messageId: emailResult.messageId,
+          accepted: emailResult.accepted,
+          rejected: emailResult.rejected,
+          response: emailResult.response,
+        })
+
         return email
       } catch (error) {
-        logger.error(`Error sending email to ${contact.email}:`, error)
+        logger.error(`Error sending email to ${contact.email}:`, {
+          error: error.message,
+          stack: error.stack,
+          campaignId: campaign._id?.toString(),
+          contactId: contact._id?.toString(),
+        })
         return null
       }
     })
@@ -1095,10 +1134,19 @@ async function sendCampaignEmails(campaignId, userId) {
     campaign.sentAt = new Date()
     await campaign.save()
 
-    logger.info(`Campaign emails sent immediately: ${campaignId}`)
+    logger.info(`Campaign emails sent immediately`, {
+      campaignId: campaignId?.toString?.() || campaignId,
+      finalStatus: campaign.status,
+      sentAtISO: campaign.sentAt?.toISOString?.() || null,
+    })
     return campaign
   } catch (error) {
-    logger.error("Error sending campaign emails:", error)
+    logger.error("Error sending campaign emails:", {
+      error: error.message,
+      stack: error.stack,
+      campaignId,
+      userId,
+    })
     throw error
   }
 }
@@ -1149,11 +1197,24 @@ async function setupSequenceFollowups(campaignId, userId) {
     // Calculate follow-up schedule
     const { initialDelay, followupDelays, maxFollowups } = campaign.sequence
 
-    // Schedule initial emails
-    const initialScheduleTime = new Date()
-    if (initialDelay > 0) {
-      initialScheduleTime.setHours(initialScheduleTime.getHours() + initialDelay)
-    }
+    // Log campaign and sequence config for diagnostics
+    logger.info('Sequence setup starting', {
+      campaignId: campaign._id?.toString(),
+      userId: campaign.userId?.toString?.() || campaign.userId,
+      totalContacts: contacts.length,
+      uniqueContacts: uniqueContacts.length,
+      sequence: {
+        initialDelay,
+        followupDelays,
+        maxFollowups,
+      },
+      nowISO: new Date().toISOString(),
+    })
+
+    // Schedule initial emails (support fractional hours using milliseconds)
+    const now = Date.now()
+    const initialDelayMs = (Number(initialDelay) || 0) * 60 * 60 * 1000
+    const initialScheduleTime = new Date(now + initialDelayMs)
 
     // Create follow-up schedule for each contact
     const followupPromises = uniqueContacts.map(async (contact) => {
@@ -1171,12 +1232,21 @@ async function setupSequenceFollowups(campaignId, userId) {
           scheduledAt: initialScheduleTime
         })
         await initialEmail.save()
+        logger.info('Initial email queued (sequence)', {
+          emailId: initialEmail._id?.toString(),
+          contact: contact.email,
+          scheduledAtISO: initialEmail.scheduledAt?.toISOString?.() || null,
+          scheduledAtIST: initialEmail.scheduledAt?.toLocaleString?.('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
+        })
 
         // Schedule follow-up emails
-        let currentTime = new Date(initialScheduleTime)
+        let currentTimeMs = initialScheduleTime.getTime()
         for (let i = 0; i < Math.min(maxFollowups, followupDelays.length); i++) {
-          currentTime.setHours(currentTime.getHours() + followupDelays[i])
-          
+          const delayHours = Number(followupDelays[i]) || 0
+          const delayMs = delayHours * 60 * 60 * 1000
+          currentTimeMs += delayMs
+          const scheduledAt = new Date(currentTimeMs)
+
           const followupEmail = new Email({
             campaignId: campaign._id,
             contactId: contact._id,
@@ -1186,15 +1256,28 @@ async function setupSequenceFollowups(campaignId, userId) {
             htmlContent: campaign.template.htmlContent,
             textContent: campaign.template.textContent,
             status: "queued",
-            scheduledAt: new Date(currentTime),
+            scheduledAt: scheduledAt,
             followupNumber: i + 1
           })
           await followupEmail.save()
+          logger.info('Follow-up email queued (sequence)', {
+            emailId: followupEmail._id?.toString(),
+            contact: contact.email,
+            followupNumber: i + 1,
+            scheduledAtISO: followupEmail.scheduledAt?.toISOString?.() || null,
+            scheduledAtIST: followupEmail.scheduledAt?.toLocaleString?.('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
+            delayHours,
+          })
         }
 
         return contact
       } catch (error) {
-        logger.error(`Error setting up sequence for ${contact.email}:`, error)
+        logger.error(`Error setting up sequence for ${contact.email}:`, {
+          error: error.message,
+          stack: error.stack,
+          campaignId: campaign._id?.toString(),
+          userId: userId,
+        })
         return null
       }
     })
@@ -1205,10 +1288,21 @@ async function setupSequenceFollowups(campaignId, userId) {
     campaign.status = "scheduled"
     await campaign.save()
 
-    logger.info(`Sequence follow-ups setup: ${campaignId}`)
+    logger.info(`Sequence follow-ups setup complete`, {
+      campaignId: campaignId?.toString?.() || campaignId,
+      totalContacts: uniqueContacts.length,
+      status: campaign.status,
+      scheduledStartISO: initialScheduleTime?.toISOString?.() || null,
+      scheduledStartIST: initialScheduleTime?.toLocaleString?.('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
+    })
     return campaign
   } catch (error) {
-    logger.error("Error setting up sequence follow-ups:", error)
+    logger.error("Error setting up sequence follow-ups:", {
+      error: error.message,
+      stack: error.stack,
+      campaignId,
+      userId,
+    })
     throw error
   }
 }

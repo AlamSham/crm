@@ -30,8 +30,7 @@ export default function FollowUpContactLists() {
     createContactList,
     updateContactList,
     deleteContactList,
-    addContactsToList,
-    removeContactFromList
+    addContactsToList
   } = useFollowUpContext()
 
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
@@ -293,16 +292,6 @@ export default function FollowUpContactLists() {
       }
     }
 
-    const handleRemoveContact = async (contactId: string) => {
-      try {
-        await removeContactFromList(selectedList._id, contactId)
-        // Refresh the list data
-        // You might need to refetch the contact list data here
-      } catch (error) {
-        console.error('Failed to remove contact:', error)
-      }
-    }
-
     return (
       <div className="space-y-4">
         <div className="bg-blue-50 p-4 rounded-lg">
@@ -365,13 +354,7 @@ export default function FollowUpContactLists() {
                       Status: <Tag color={contact.status === 'active' ? 'green' : 'red'}>{contact.status}</Tag>
                     </div>
                   </div>
-                  <Button 
-                    type="text" 
-                    size="small" 
-                    danger 
-                    icon={<UserDeleteOutlined />}
-                    onClick={() => handleRemoveContact(contact._id)}
-                  />
+                  {/* Remove contact action not supported by API */}
                 </div>
               ))
             )}

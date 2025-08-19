@@ -23,7 +23,7 @@ const getAuthHeaders = (): Record<string, string> => {
   if (userId) return { "x-user-id": userId, "x-role": "merch" }
   // Fallback to admin
   const adminId = localStorage.getItem("adminId") || ""
-  return adminId ? { "X-Admin-ID": adminId } : {}
+  return adminId ? { "x-admin-id": adminId } : {}
 }
 
 // Use public follow-up base (works for both admin and merch)
@@ -80,13 +80,6 @@ export const campaignApi = {
     })
     return response.data.data
   },
-
-  pause: async (id: string): Promise<Campaign> => {
-    const response = await axiosInstance.post<ApiResponse<Campaign>>(`${FOLLOWUP_BASE}/campaigns/${id}/pause`, {}, {
-      headers: { ...getAuthHeaders() },
-    })
-    return response.data.data
-  },
 }
 
 // Contact API
@@ -113,13 +106,6 @@ export const contactApi = {
       contacts: response.data.data,
       pagination: response.data.pagination!,
     }
-  },
-
-  getById: async (id: string): Promise<Contact> => {
-    const response = await axiosInstance.get<ApiResponse<Contact>>(`${FOLLOWUP_BASE}/contacts/${id}`, {
-      headers: { ...getAuthHeaders() },
-    })
-    return response.data.data
   },
 
   update: async (id: string, data: Partial<CreateContactData>): Promise<Contact> => {
@@ -169,13 +155,6 @@ export const contactListApi = {
     }
   },
 
-  getById: async (id: string): Promise<ContactList> => {
-    const response = await axiosInstance.get<ApiResponse<ContactList>>(`${FOLLOWUP_BASE}/contact-lists/${id}`, {
-      headers: { ...getAuthHeaders() },
-    })
-    return response.data.data
-  },
-
   update: async (id: string, data: Partial<CreateContactListData>): Promise<ContactList> => {
     const response = await axiosInstance.put<ApiResponse<ContactList>>(`${FOLLOWUP_BASE}/contact-lists/${id}`, data, {
       headers: { ...getAuthHeaders() },
@@ -189,8 +168,8 @@ export const contactListApi = {
     })
   },
 
-  addContacts: async (listId: string, contactIds: string[]): Promise<ContactList> => {
-    const response = await axiosInstance.post<ApiResponse<ContactList>>(
+  addContacts: async (listId: string, contactIds: string[]): Promise<void> => {
+    await axiosInstance.post(
       `${FOLLOWUP_BASE}/contact-lists/${listId}/contacts`,
       {
         contactIds,
@@ -199,17 +178,6 @@ export const contactListApi = {
         headers: { ...getAuthHeaders() },
       },
     )
-    return response.data.data
-  },
-
-  removeContact: async (listId: string, contactId: string): Promise<ContactList> => {
-    const response = await axiosInstance.delete<ApiResponse<ContactList>>(
-      `${FOLLOWUP_BASE}/contact-lists/${listId}/contacts/${contactId}`,
-      {
-        headers: { ...getAuthHeaders() },
-      },
-    )
-    return response.data.data
   },
 }
 
@@ -227,9 +195,11 @@ export const templateApi = {
     limit = 10,
     search = "",
     type = "",
+    isActive?: boolean,
+    approvedOnly?: boolean,
   ): Promise<{ templates: Template[]; pagination: PaginationInfo }> => {
     const response = await axiosInstance.get<ApiResponse<Template[]>>(`${FOLLOWUP_BASE}/templates`, {
-      params: { page, limit, search, type },
+      params: { page, limit, search, type, isActive, approvedOnly },
       headers: { ...getAuthHeaders() },
     })
     return {
@@ -238,18 +208,24 @@ export const templateApi = {
     }
   },
 
-  getById: async (id: string): Promise<Template> => {
-    const response = await axiosInstance.get<ApiResponse<Template>>(`${FOLLOWUP_BASE}/templates/${id}`, {
-      headers: { ...getAuthHeaders() },
-    })
-    return response.data.data
-  },
-
   update: async (id: string, data: Partial<CreateTemplateData>): Promise<Template> => {
     const response = await axiosInstance.put<ApiResponse<Template>>(`${FOLLOWUP_BASE}/templates/${id}`, data, {
       headers: { ...getAuthHeaders() },
     })
     return response.data.data
+  },
+
+  // Admin: list pending templates
+  getPending: async (
+    page = 1,
+    limit = 10,
+  ): Promise<{ templates: Template[]; pagination?: PaginationInfo }> => {
+    const response = await axiosInstance.get<ApiResponse<Template[]>>(`${FOLLOWUP_BASE}/templates/pending`, {
+      params: { page, limit },
+      headers: { ...getAuthHeaders() },
+    })
+    // Backend returns array without pagination; keep structure consistent
+    return { templates: response.data.data, pagination: response.data.pagination }
   },
 
   approve: async (id: string): Promise<Template> => {
@@ -295,13 +271,6 @@ export const followUpApi = {
     }
   },
 
-  getById: async (id: string): Promise<FollowUp> => {
-    const response = await axiosInstance.get<ApiResponse<FollowUp>>(`${FOLLOWUP_BASE}/followups/${id}`, {
-      headers: { ...getAuthHeaders() },
-    })
-    return response.data.data
-  },
-
   update: async (id: string, data: any): Promise<FollowUp> => {
     const response = await axiosInstance.put<ApiResponse<FollowUp>>(`${FOLLOWUP_BASE}/followups/${id}`, data, {
       headers: { ...getAuthHeaders() },
@@ -313,16 +282,6 @@ export const followUpApi = {
     await axiosInstance.delete(`${FOLLOWUP_BASE}/followups/${id}`, {
       headers: { ...getAuthHeaders() },
     })
-  },
-
-  getByCampaign: async (campaignId: string): Promise<FollowUp[]> => {
-    const response = await axiosInstance.get<ApiResponse<FollowUp[]>>(
-      `${FOLLOWUP_BASE}/followups/campaign/${campaignId}`,
-      {
-        headers: { ...getAuthHeaders() },
-      },
-    )
-    return response.data.data
   },
 }
 

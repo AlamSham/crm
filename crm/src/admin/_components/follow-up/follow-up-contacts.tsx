@@ -6,13 +6,12 @@ import {
   PlusOutlined, 
   EditOutlined, 
   DeleteOutlined, 
-  EyeOutlined, 
+
   UploadOutlined,
   DownloadOutlined,
   UserOutlined,
   MailOutlined,
-  PhoneOutlined,
-  BankOutlined,
+
   ExclamationCircleOutlined,
   BarChartOutlined
 } from '@ant-design/icons'
@@ -133,14 +132,7 @@ export default function FollowUpContacts() {
       key: 'actions',
       render: (record: Contact) => (
         <Space>
-          <Tooltip title="View Details">
-            <Button 
-              type="text" 
-              size="small" 
-              icon={<EyeOutlined />}
-              onClick={() => handleViewContact(record)}
-            />
-          </Tooltip>
+        
           
           <Tooltip title="Edit Contact">
             <Button 
