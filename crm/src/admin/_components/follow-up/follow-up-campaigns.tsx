@@ -341,60 +341,6 @@ export default function FollowUpCampaigns() {
       </Form.Item>
 
       <Form.Item
-        name="template"
-        label="Email Template"
-        rules={[{ required: true, message: 'Please select a template' }]}
-      >
-        <Select placeholder="Select template" loading={templatesLoading}>
-          {templates.map(template => (
-            <Option key={template._id} value={template._id}>
-              {template.name} ({template.type})
-            </Option>
-          ))}
-        </Select>
-      </Form.Item>
-
-      <Form.Item
-        name="contacts"
-        label="Direct Contacts"
-      >
-        <Select
-          mode="multiple"
-          placeholder="Select contacts"
-          loading={campaignsLoading}
-          showSearch
-          filterOption={(input, option) =>
-            (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-          }
-        >
-          {contacts.map(contact => (
-            <Option key={contact._id} value={contact._id}>
-              {contact.email} {contact.firstName && `(${contact.firstName} ${contact.lastName})`}
-            </Option>
-          ))}
-        </Select>
-      </Form.Item>
-
-      <Form.Item
-        name="contactLists"
-        label="Contact Lists"
-      >
-        <Select
-          mode="multiple"
-          placeholder="Select contact lists"
-          loading={campaignsLoading}
-        >
-          {contactLists.map(list => (
-            <Option key={list._id} value={list._id}>
-              {list.name} ({list.totalContacts} contacts)
-            </Option>
-          ))}
-        </Select>
-      </Form.Item>
-
-      
-
-      <Form.Item
         noStyle
         shouldUpdate={(prevValues, currentValues) => prevValues.sendType !== currentValues.sendType}
       >
@@ -483,6 +429,61 @@ export default function FollowUpCampaigns() {
           return null
         }}
       </Form.Item>
+
+      <Form.Item
+        name="template"
+        label="Email Template"
+        rules={[{ required: true, message: 'Please select a template' }]}
+      >
+        <Select placeholder="Select template" loading={templatesLoading}>
+          {templates.map(template => (
+            <Option key={template._id} value={template._id}>
+              {template.name} ({template.type})
+            </Option>
+          ))}
+        </Select>
+      </Form.Item>
+
+      <Form.Item
+        name="contacts"
+        label="Direct Contacts"
+      >
+        <Select
+          mode="multiple"
+          placeholder="Select contacts"
+          loading={campaignsLoading}
+          showSearch
+          filterOption={(input, option) =>
+            (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+          }
+        >
+          {contacts.map(contact => (
+            <Option key={contact._id} value={contact._id}>
+              {contact.email} {contact.firstName && `(${contact.firstName} ${contact.lastName})`}
+            </Option>
+          ))}
+        </Select>
+      </Form.Item>
+
+      <Form.Item
+        name="contactLists"
+        label="Contact Lists"
+      >
+        <Select
+          mode="multiple"
+          placeholder="Select contact lists"
+          loading={campaignsLoading}
+        >
+          {contactLists.map(list => (
+            <Option key={list._id} value={list._id}>
+              {list.name} ({list.totalContacts} contacts)
+            </Option>
+          ))}
+        </Select>
+      </Form.Item>
+
+      
+
 
       <Form.Item>
         <Space>
