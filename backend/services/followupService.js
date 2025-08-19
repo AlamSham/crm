@@ -1242,33 +1242,81 @@ async function setupSequenceFollowups(campaignId, userId) {
 
         // Schedule follow-up emails
         let currentTimeMs = initialScheduleTime.getTime()
-        for (let i = 0; i < Math.min(maxFollowups, followupDelays.length); i++) {
-          const delayHours = Number(followupDelays[i]) || 0
-          const delayMs = delayHours * 60 * 60 * 1000
-          currentTimeMs += delayMs
-          const scheduledAt = new Date(currentTimeMs)
+        const explicitSteps = Array.isArray(campaign.sequence?.steps) ? campaign.sequence.steps : []
+        if (explicitSteps.length > 0) {
+          // Use per-step template selection
+          for (let i = 0; i < Math.min(maxFollowups, explicitSteps.length); i++) {
+            const step = explicitSteps[i] || {}
+            const delayHours = Number(step.delayHours) || 0
+            const delayMs = delayHours * 60 * 60 * 1000
+            currentTimeMs += delayMs
+            const scheduledAt = new Date(currentTimeMs)
 
-          const followupEmail = new Email({
-            campaignId: campaign._id,
-            contactId: contact._id,
-            templateId: campaign.template._id,
-            userId: userId,
-            subject: `Follow-up ${i + 1}: ${campaign.subject || campaign.template.subject}`,
-            htmlContent: campaign.template.htmlContent,
-            textContent: campaign.template.textContent,
-            status: "queued",
-            scheduledAt: scheduledAt,
-            followupNumber: i + 1
-          })
-          await followupEmail.save()
-          logger.info('Follow-up email queued (sequence)', {
-            emailId: followupEmail._id?.toString(),
-            contact: contact.email,
-            followupNumber: i + 1,
-            scheduledAtISO: followupEmail.scheduledAt?.toISOString?.() || null,
-            scheduledAtIST: followupEmail.scheduledAt?.toLocaleString?.('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
-            delayHours,
-          })
+            // Load the selected template for this step
+            const stepTemplate = step.templateId ? await Template.findById(step.templateId) : null
+            if (!stepTemplate) {
+              logger.warn('Step template not found, skipping follow-up step', {
+                campaignId: campaign._id?.toString(),
+                contact: contact.email,
+                stepIndex: i,
+                templateId: step.templateId || null,
+              })
+              continue
+            }
+
+            const followupEmail = new Email({
+              campaignId: campaign._id,
+              contactId: contact._id,
+              templateId: stepTemplate._id,
+              userId: userId,
+              subject: stepTemplate.subject || `Follow-up ${i + 1}: ${campaign.subject || stepTemplate.subject}`,
+              htmlContent: stepTemplate.htmlContent,
+              textContent: stepTemplate.textContent,
+              status: "queued",
+              scheduledAt: scheduledAt,
+              followupNumber: i + 1
+            })
+            await followupEmail.save()
+            logger.info('Follow-up email queued (sequence - explicit step)', {
+              emailId: followupEmail._id?.toString(),
+              contact: contact.email,
+              followupNumber: i + 1,
+              scheduledAtISO: followupEmail.scheduledAt?.toISOString?.() || null,
+              scheduledAtIST: followupEmail.scheduledAt?.toLocaleString?.('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
+              delayHours,
+              templateId: stepTemplate._id?.toString(),
+            })
+          }
+        } else {
+          // Fall back to existing delays using the campaign's main template
+          for (let i = 0; i < Math.min(maxFollowups, followupDelays.length); i++) {
+            const delayHours = Number(followupDelays[i]) || 0
+            const delayMs = delayHours * 60 * 60 * 1000
+            currentTimeMs += delayMs
+            const scheduledAt = new Date(currentTimeMs)
+
+            const followupEmail = new Email({
+              campaignId: campaign._id,
+              contactId: contact._id,
+              templateId: campaign.template._id,
+              userId: userId,
+              subject: `Follow-up ${i + 1}: ${campaign.subject || campaign.template.subject}`,
+              htmlContent: campaign.template.htmlContent,
+              textContent: campaign.template.textContent,
+              status: "queued",
+              scheduledAt: scheduledAt,
+              followupNumber: i + 1
+            })
+            await followupEmail.save()
+            logger.info('Follow-up email queued (sequence)', {
+              emailId: followupEmail._id?.toString(),
+              contact: contact.email,
+              followupNumber: i + 1,
+              scheduledAtISO: followupEmail.scheduledAt?.toISOString?.() || null,
+              scheduledAtIST: followupEmail.scheduledAt?.toLocaleString?.('en-IN', { timeZone: 'Asia/Kolkata' }) || null,
+              delayHours,
+            })
+          }
         }
 
         return contact
@@ -1311,37 +1359,78 @@ async function setupSequenceFollowups(campaignId, userId) {
 // Follow-up Sequence Creation
 async function createFollowupSequence(campaign, contact, originalEmail, userId) {
   try {
-    const followupTemplates = await Template.find({
-      userId,
-      type: { $in: ["followup1", "followup2", "followup3"] }
-    }).sort({ type: 1 })
+    // If explicit steps exist, honor them; else fall back to auto-selection by type
+    const explicitSteps = Array.isArray(campaign.sequence?.steps) ? campaign.sequence.steps : []
 
-    const maxFollowups = Math.min(campaign.settings.maxFollowups, followupTemplates.length)
-    const followupDelay = campaign.settings.followupDelay
+    if (explicitSteps.length > 0) {
+      let baseTime = originalEmail?.sentAt ? new Date(originalEmail.sentAt).getTime() : Date.now()
+      for (let i = 0; i < explicitSteps.length; i++) {
+        const step = explicitSteps[i] || {}
+        const delayHours = Number(step.delayHours) || 0
+        const scheduledAt = new Date(baseTime + delayHours * 60 * 60 * 1000)
 
-    for (let i = 0; i < maxFollowups; i++) {
-      const template = followupTemplates[i]
-      if (!template) continue
-
-      const scheduledAt = new Date()
-      scheduledAt.setDate(scheduledAt.getDate() + (followupDelay * (i + 1)))
-
-      const followup = new Followup({
-        campaignId: campaign._id,
-        originalEmailId: originalEmail._id,
-        contactId: contact._id,
-        templateId: template._id,
-        userId: userId,
-        sequence: i + 1,
-        scheduledAt: scheduledAt,
-        conditions: {
-          requireOpen: true,
-          requireClick: false,
-          requireNoReply: true
+        // Load the selected template for this step
+        const stepTemplate = step.templateId ? await Template.findById(step.templateId) : null
+        if (!stepTemplate) {
+          logger.warn('Step template not found for followup creation, skipping', {
+            campaignId: campaign._id?.toString(),
+            contact: contact.email,
+            stepIndex: i,
+            templateId: step.templateId || null,
+          })
+          continue
         }
-      })
 
-      await followup.save()
+        const followup = new Followup({
+          campaignId: campaign._id,
+          originalEmailId: originalEmail._id,
+          contactId: contact._id,
+          templateId: stepTemplate._id,
+          userId: userId,
+          sequence: i + 1,
+          scheduledAt: scheduledAt,
+          conditions: {
+            requireOpen: step.conditions?.requireOpen ?? true,
+            requireClick: step.conditions?.requireClick ?? false,
+            requireNoReply: step.conditions?.requireNoReply ?? true,
+          }
+        })
+
+        await followup.save()
+      }
+    } else {
+      const followupTemplates = await Template.find({
+        userId,
+        type: { $in: ["followup1", "followup2", "followup3"] }
+      }).sort({ type: 1 })
+
+      const maxFollowups = Math.min(campaign.settings.maxFollowups, followupTemplates.length)
+      const followupDelay = campaign.settings.followupDelay
+
+      for (let i = 0; i < maxFollowups; i++) {
+        const template = followupTemplates[i]
+        if (!template) continue
+
+        const scheduledAt = new Date()
+        scheduledAt.setDate(scheduledAt.getDate() + (followupDelay * (i + 1)))
+
+        const followup = new Followup({
+          campaignId: campaign._id,
+          originalEmailId: originalEmail._id,
+          contactId: contact._id,
+          templateId: template._id,
+          userId: userId,
+          sequence: i + 1,
+          scheduledAt: scheduledAt,
+          conditions: {
+            requireOpen: true,
+            requireClick: false,
+            requireNoReply: true
+          }
+        })
+
+        await followup.save()
+      }
     }
 
     logger.info(`Followup sequence created for contact: ${contact.email}`)

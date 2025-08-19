@@ -48,6 +48,18 @@ const campaignSchema = new mongoose.Schema(
         clickLink: { type: Boolean, default: false },
         replyEmail: { type: Boolean, default: false },
       },
+      // Optional explicit per-step configuration and template selection
+      steps: [
+        {
+          delayHours: { type: Number },
+          templateId: { type: mongoose.Schema.Types.ObjectId, ref: "Template" },
+          conditions: {
+            requireOpen: { type: Boolean },
+            requireClick: { type: Boolean },
+            requireNoReply: { type: Boolean },
+          },
+        },
+      ],
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,

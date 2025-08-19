@@ -12,7 +12,8 @@ import {
   BarChartOutlined,
   MailOutlined,
   CalendarOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  MinusCircleOutlined
 } from '@ant-design/icons'
 import { useFollowUpContext } from './hooks/use-follow-up'
 import type { Campaign } from './types/follow-up'
@@ -398,6 +399,70 @@ export default function FollowUpCampaigns() {
                     style={{ width: '100%' }}
                   />
                 </Form.Item>
+
+                {/* Explicit per-step templates and delays */}
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <Text strong>Sequence Steps (optional)</Text>
+                    <Form.List name={['sequence', 'steps']}>
+                      {(fields, { add, remove }) => (
+                        <div className="w-full">
+                          {fields.map((field, index) => (
+                            <Card key={field.key} size="small" className="mb-3" title={`Step ${index + 1}`} extra={
+                              <Button type="text" danger icon={<MinusCircleOutlined />} onClick={() => remove(field.name)} />
+                            }>
+                              <Row gutter={12}>
+                                <Col span={14}>
+                                  <Form.Item
+                                    name={[field.name, 'templateId']}
+                                    label="Template"
+                                    rules={[{ required: true, message: 'Select a template for this step' }]}
+                                  >
+                                    <Select placeholder="Select template" loading={templatesLoading}>
+                                      {templates.map(t => (
+                                        <Option key={t._id} value={t._id}>
+                                          {t.name} ({t.type})
+                                        </Option>
+                                      ))}
+                                    </Select>
+                                  </Form.Item>
+                                </Col>
+                                <Col span={10}>
+                                  <Form.Item
+                                    name={[field.name, 'delayHours']}
+                                    label="Delay (hours)"
+                                    rules={[{ required: true, message: 'Enter delay for this step' }]}
+                                  >
+                                    <InputNumber min={0} max={720} placeholder="e.g., 24" style={{ width: '100%' }} />
+                                  </Form.Item>
+                                </Col>
+                              </Row>
+                              <Row>
+                                <Col span={24}>
+                                  <Text type="secondary">Conditions (when to send this step)</Text>
+                                  <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                                    <Form.Item name={[field.name, 'conditions', 'requireOpen']} valuePropName="checked">
+                                      <Checkbox>Require open</Checkbox>
+                                    </Form.Item>
+                                    <Form.Item name={[field.name, 'conditions', 'requireClick']} valuePropName="checked">
+                                      <Checkbox>Require click</Checkbox>
+                                    </Form.Item>
+                                    <Form.Item name={[field.name, 'conditions', 'requireNoReply']} valuePropName="checked" initialValue={true}>
+                                      <Checkbox>Require no reply</Checkbox>
+                                    </Form.Item>
+                                  </div>
+                                </Col>
+                              </Row>
+                            </Card>
+                          ))}
+                          <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add()}>
+                            Add Step
+                          </Button>
+                        </div>
+                      )}
+                    </Form.List>
+                  </div>
+                </div>
                 
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <Text strong>Sequence Conditions:</Text>

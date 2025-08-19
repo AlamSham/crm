@@ -24,7 +24,8 @@ const PORT = process.env.PORT || 5000;
 // CORS config
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
-  'https://papaya-kitten-d5846f.netlify.app',
+
+  'https://crmfrontend-dbc12.web.app',
 ];
 
 app.use(cors({

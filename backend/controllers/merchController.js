@@ -47,7 +47,7 @@ exports.login = async (req, res) => {
     res.cookie('merchRefreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
@@ -99,7 +99,7 @@ exports.logout = async (req, res) => {
     res.clearCookie('merchRefreshToken', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
     })
     return res.status(200).json({ message: 'Logged out' })
   } catch (err) {
