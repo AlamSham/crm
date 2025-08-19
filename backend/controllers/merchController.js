@@ -28,6 +28,12 @@ exports.login = async (req, res) => {
     console.log('[merch.login] Password compare:', ok, 'userId:', user._id.toString())
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' })
 
+    // Block inactive users
+    if (!user.active) {
+      console.log('[merch.login] Inactive account for userId:', user._id.toString())
+      return res.status(403).json({ message: 'Account inactive. Please contact admin.' })
+    }
+
     // Optional: update lastLogin
     user.lastLogin = new Date()
     await user.save()

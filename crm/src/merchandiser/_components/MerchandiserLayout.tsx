@@ -172,7 +172,7 @@ const MerchandiserLayout = () => {
               
               {userDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
-                  <a
+                  {/* <a
                     href="#"
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
@@ -180,8 +180,8 @@ const MerchandiserLayout = () => {
                       <FiUsers className="mr-2" size={16} />
                       Profile
                     </div>
-                  </a>
-                  <a
+                  </a> */}
+                  {/* <a
                     href="#"
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
@@ -189,8 +189,8 @@ const MerchandiserLayout = () => {
                       <FiLock className="mr-2" size={16} />
                       Change Password
                     </div>
-                  </a>
-                  <a
+                  </a> */}
+                  {/* <a
                     href="#"
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
@@ -198,7 +198,7 @@ const MerchandiserLayout = () => {
                       <FiHelpCircle className="mr-2" size={16} />
                       Help
                     </div>
-                  </a>
+                  </a> */}
                   <div className="border-t border-gray-200 my-1"></div>
                   <button
                     onClick={async () => {

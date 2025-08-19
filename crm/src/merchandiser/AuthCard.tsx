@@ -11,7 +11,11 @@ type FormValues = {
   password?: string;
 };
 
-const AuthCard = () => {
+type AuthCardProps = {
+  type?: 'login' | string;
+};
+
+const AuthCard = (_props: AuthCardProps) => {
   const [form] = Form.useForm<FormValues>();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -57,10 +61,28 @@ const AuthCard = () => {
       notification.success({ message: 'Login Successful', description: 'Redirecting to dashboard...' })
       navigate('/merchandiser/merchandiserDashboard', { replace: true })
     } catch (error: unknown) {
-      notification.error({
-        message: 'Error',
-        description: error instanceof Error ? error.message : 'Invalid email or password',
-      })
+      const resp = (error as any)?.response
+      const status: number | undefined = resp?.status
+      const serverMsg: string | undefined = resp?.data?.message
+
+      if (status === 401) {
+        // Inline form errors for wrong credentials
+        const msg = serverMsg || 'Invalid email or password'
+        try {
+          form.setFields([
+            { name: 'email', errors: [msg] },
+            { name: 'password', errors: [msg] },
+          ])
+          // Optional scroll for visibility
+          ;(form as any).scrollToField?.('email')
+        } catch {}
+      } else {
+        const desc = serverMsg || (error instanceof Error ? error.message : 'Login failed')
+        notification.error({
+          message: 'Login failed',
+          description: desc,
+        })
+      }
     } finally {
       setLoading(false)
     }

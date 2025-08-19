@@ -96,13 +96,13 @@ exports.createUser = async (req, res) => {
     }
 
     const pwd = String(password).trim();
-    const hashed = await bcrypt.hash(pwd, 10);
     const user = await User.create({
       name,
       email: normalizedEmail,
       role: 'Merchandiser',
       active,
-      password: hashed,
+      // Pass plain password; model pre-save hook will hash it
+      password: pwd,
       isLeadAccess: typeof isLeadAccess === 'string' ? isLeadAccess === 'true' : !!isLeadAccess,
       isCustomerProfiling: typeof isCustomerProfiling === 'string' ? isCustomerProfiling === 'true' : !!isCustomerProfiling,
       isCustomerEnquiry: typeof isCustomerEnquiry === 'string' ? isCustomerEnquiry === 'true' : !!isCustomerEnquiry,
