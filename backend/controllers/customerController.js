@@ -33,7 +33,8 @@ exports.listCustomers = async (req, res) => {
       Customer.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(Number(limit)),
+        .limit(Number(limit))
+        .populate('createdBy', 'name email'),
       Customer.countDocuments(query),
     ]);
 
@@ -72,6 +73,13 @@ exports.createCustomer = async (req, res) => {
     const historyArr = Array.isArray(history) ? [...history] : [];
     historyArr.push({ date: new Date(), action: 'Created', details: `Status: ${effectiveStatus}` });
 
+    // Determine creator (User or Admin)
+    const creatorId = (req.user && req.user._id) || (req.admin && req.admin._id);
+    const creatorModel = req.user ? 'User' : req.admin ? 'Admin' : null;
+    if (!creatorId || !creatorModel) {
+      return res.status(401).json({ message: 'Unauthorized: missing creator identity' });
+    }
+
     const doc = await Customer.create({
       name,
       email: String(email).toLowerCase(),
@@ -81,6 +89,8 @@ exports.createCustomer = async (req, res) => {
       interestedProducts: interestedArr,
       history: historyArr,
       notes,
+      createdBy: creatorId,
+      createdByModel: creatorModel,
     });
     res.status(201).json(doc);
   } catch (err) {

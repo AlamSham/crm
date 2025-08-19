@@ -123,6 +123,19 @@ const CustomerEnquiryManagement = () => {
       ),
     },
     {
+      title: 'Created By',
+      dataIndex: 'createdBy',
+      key: 'createdBy',
+      width: 180,
+      responsive: ['md','lg','xl'],
+      ellipsis: true,
+      render: (c: any) => (
+        <Tooltip title={c ? (c.name || c.email || c._id || String(c)) : '—'}>
+          <span style={{ whiteSpace: 'nowrap' }}>{c ? (c.name || c.email || c._id || String(c)) : '—'}</span>
+        </Tooltip>
+      ),
+    },
+    {
       title: 'Actions',
       key: 'actions',
       width: 80,
@@ -378,11 +391,13 @@ const CustomerEnquiryManagement = () => {
             { key: 'products', label: 'Products', children: (viewed.products||[]).map(p=> <Tag key={p}>{p}</Tag>) },
             { key: 'priority', label: 'Priority', children: <Tag color={viewed.priority==='High'?'red':viewed.priority==='Medium'?'orange':'blue'}>{viewed.priority}</Tag> },
             { key: 'status', label: 'Status', children: viewed.status },
+            { key: 'createdBy', label: 'Created By', children: (viewed as any).createdBy ? ((viewed as any).createdBy.name || (viewed as any).createdBy.email || (viewed as any).createdBy._id || String((viewed as any).createdBy)) : '—' },
             { key: 'notes', label: 'Notes', children: viewed.notes || '—' },
             { key: 'source', label: 'Source', children: viewed.source || '—' },
           ]} />
         )}
       </Drawer>
+
       {/* In-app Email Composer */}
       <EmailProvider>
         <ComposeEmail

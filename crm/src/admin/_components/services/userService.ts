@@ -51,8 +51,6 @@ export const userService = {
     return res.data
   },
 
-  // removed follow-up and email permission APIs
-
   // New granular permissions
   async grantLeadAccess(id: string) {
     const res = await axiosInstance.patch<User>(`/users/grant-lead/${id}`)
@@ -62,20 +60,36 @@ export const userService = {
     const res = await axiosInstance.patch<User>(`/users/revoke-lead/${id}`)
     return res.data
   },
-  async grantCatalogAccess(id: string) {
-    const res = await axiosInstance.patch<User>(`/users/grant-catalog/${id}`)
+  async grantCustomerProfiling(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/grant-customer-profiling/${id}`)
     return res.data
   },
-  async revokeCatalogAccess(id: string) {
-    const res = await axiosInstance.patch<User>(`/users/revoke-catalog/${id}`)
+  async revokeCustomerProfiling(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/revoke-customer-profiling/${id}`)
     return res.data
   },
-  async grantTemplateAccess(id: string) {
-    const res = await axiosInstance.patch<User>(`/users/grant-template/${id}`)
+  async grantCustomerEnquiry(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/grant-customer-enquiry/${id}`)
     return res.data
   },
-  async revokeTemplateAccess(id: string) {
-    const res = await axiosInstance.patch<User>(`/users/revoke-template/${id}`)
+  async revokeCustomerEnquiry(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/revoke-customer-enquiry/${id}`)
+    return res.data
+  },
+  async grantEmailAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/grant-email/${id}`)
+    return res.data
+  },
+  async revokeEmailAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/revoke-email/${id}`)
+    return res.data
+  },
+  async grantFollowUpAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/grant-followup/${id}`)
+    return res.data
+  },
+  async revokeFollowUpAccess(id: string) {
+    const res = await axiosInstance.patch<User>(`/users/revoke-followup/${id}`)
     return res.data
   },
 }

@@ -2,7 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const router = express.Router()
 const catalogController = require('../controllers/catalogController')
-const { verifyAccessToken } = require('../middleware/authMiddleware')
+const anyAuth = require('../middleware/anyAuthMiddleware')
 
 const storage = multer.memoryStorage()
 const upload = multer({
@@ -21,26 +21,28 @@ const uploadPdf = multer({
 })
 
 // Categories
-router.post('/categories', catalogController.createCategory)
+// Authenticated write operations (admin or merch)
+router.post('/categories', anyAuth, catalogController.createCategory)
 router.get('/categories', catalogController.listCategories)
-router.put('/categories/:id', catalogController.updateCategory)
-router.delete('/categories/:id', catalogController.deleteCategory)
+router.put('/categories/:id', anyAuth, catalogController.updateCategory)
+router.delete('/categories/:id', anyAuth, catalogController.deleteCategory)
 
 // Items
-router.post('/items', catalogController.createItem)
+// Authenticated write operations (admin or merch)
+router.post('/items', anyAuth, catalogController.createItem)
 router.get('/items', catalogController.listItems)
 // Admin: list pending catalog items (place before /items/:id)
-router.get('/items/pending', verifyAccessToken, catalogController.listPendingForAdmin)
+router.get('/items/pending', anyAuth, catalogController.listPendingForAdmin)
 router.get('/items/:id', catalogController.getItem)
-router.put('/items/:id', catalogController.updateItem)
-router.delete('/items/:id', catalogController.deleteItem)
+router.put('/items/:id', anyAuth, catalogController.updateItem)
+router.delete('/items/:id', anyAuth, catalogController.deleteItem)
 // Admin: approve catalog item
-router.patch('/items/:id/approve', verifyAccessToken, catalogController.approveItem)
+router.patch('/items/:id/approve', anyAuth, catalogController.approveItem)
 
-// Upload image
-router.post('/upload/image', upload.single('image'), catalogController.uploadImage)
+// Upload image (admin or merch)
+router.post('/upload/image', anyAuth, upload.single('image'), catalogController.uploadImage)
 
-// Upload document (PDF)
-router.post('/upload/file', uploadPdf.single('file'), catalogController.uploadFile)
+// Upload document (PDF) (admin or merch)
+router.post('/upload/file', anyAuth, uploadPdf.single('file'), catalogController.uploadFile)
 
 module.exports = router

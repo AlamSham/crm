@@ -265,21 +265,7 @@ export default function CatalogItems() {
                       >
                         Edit
                       </button>
-                      {it.status === 'pending' && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              const approved = await catalogApi.approveItem(it._id!)
-                              setItems((prev) => prev.map((p) => (p._id === approved._id ? approved : p)))
-                            } catch (e: any) {
-                              alert(e?.message || 'Failed to approve item')
-                            }
-                          }}
-                          className="px-2 py-1 rounded border text-xs text-green-700 border-green-600"
-                        >
-                          Approve
-                        </button>
-                      )}
+                      {/* Approve action removed by requirement */}
                       <button
                         onClick={async () => {
                           if (!confirm('Delete this item?')) return

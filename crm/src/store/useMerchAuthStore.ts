@@ -6,6 +6,8 @@ type MerchPermissions = {
   catalog?: boolean
   lead?: boolean
   template?: boolean
+  customerEnquiry?: boolean
+  customerProfiling?: boolean
   [key: string]: boolean | undefined
 }
 

@@ -45,8 +45,6 @@ const MerchandiserDashboard = () => {
   const [summary, setSummary] = useState<null | {
     leads: { total: number; byStatus: Record<string, number>; byPriority: Record<string, number> }
     events: { total: number; upcoming: number }
-    catalogs: { total: number }
-    templates: { total: number }
   }>(null)
   const [timeseries, setTimeseries] = useState<null | {
     leadsMonthly: { _id: { y: number; m: number }; count: number }[]
@@ -64,6 +62,7 @@ const MerchandiserDashboard = () => {
           merchDashboardApi.timeseries(),
           leadApi.list({ page: 1, limit: 5 }),
         ])
+
         if (!mounted) return
         setSummary(s)
         setTimeseries(t)
@@ -176,26 +175,6 @@ const MerchandiserDashboard = () => {
               value={summary?.leads.total || 0}
               valueStyle={{ color: '#000' }}
               prefix={<UserOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Catalog Items"
-              value={summary?.catalogs.total || 0}
-              valueStyle={{ color: '#000' }}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Templates"
-              value={summary?.templates.total || 0}
-              valueStyle={{ color: '#000' }}
-              prefix={<ClockCircleOutlined />}
             />
           </Card>
         </Col>

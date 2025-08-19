@@ -10,8 +10,10 @@ export interface User {
   lastLogin?: string
   // removed: isFollowUpPerson, isEmailAccess
   isLeadAccess?: boolean
-  isCatalogAccess?: boolean
-  isTemplateAccess?: boolean
+  isCustomerProfiling?: boolean
+  isCustomerEnquiry?: boolean
+  isEmailAccess?: boolean
+  isFollowUpAccess?: boolean
 }
 
 export interface UserListResponse {
@@ -29,8 +31,10 @@ export interface CreateUserInput {
   password: string
   // removed: isFollowUpPerson, isEmailAccess
   isLeadAccess?: boolean
-  isCatalogAccess?: boolean
-  isTemplateAccess?: boolean
+  isCustomerProfiling?: boolean
+  isCustomerEnquiry?: boolean
+  isEmailAccess?: boolean
+  isFollowUpAccess?: boolean
 }
 
 export interface UpdateUserInput {
@@ -41,6 +45,8 @@ export interface UpdateUserInput {
   password?: string
   // removed: isFollowUpPerson, isEmailAccess
   isLeadAccess?: boolean
-  isCatalogAccess?: boolean
-  isTemplateAccess?: boolean
+  isCustomerProfiling?: boolean
+  isCustomerEnquiry?: boolean
+  isEmailAccess?: boolean
+  isFollowUpAccess?: boolean
 }

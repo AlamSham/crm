@@ -284,6 +284,48 @@ async function createCampaign(campaignData) {
   }
 }
 
+// Admin: fetch all campaigns across users (no userId filter)
+async function getAllCampaigns({ page = 1, limit = 10, search = "", status = "" }) {
+  try {
+    const query = {}
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { subject: { $regex: search, $options: "i" } }
+      ]
+    }
+
+    if (status) {
+      query.status = status
+    }
+
+    const campaigns = await Campaign.find(query)
+      .populate("template", "name subject")
+      .populate("contacts", "email firstName lastName")
+      .populate("contactLists", "name totalContacts")
+      .populate("userId", "name email")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+
+    const total = await Campaign.countDocuments(query)
+
+    return {
+      campaigns,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  } catch (error) {
+    logger.error("Error fetching all campaigns:", error)
+    throw error
+  }
+}
+
 async function getCampaigns(userId, { page = 1, limit = 10, search = "", status = "" }) {
   try {
     const query = { userId }
@@ -445,6 +487,50 @@ async function getContacts(userId, { page = 1, limit = 10, search = "", status =
   }
 }
 
+async function getAllContacts({ page = 1, limit = 10, search = "", status = "", listId = "" }) {
+  try {
+    const query = {}
+
+    if (search) {
+      query.$or = [
+        { email: { $regex: search, $options: "i" } },
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { company: { $regex: search, $options: "i" } }
+      ]
+    }
+
+    if (status) {
+      query.status = status
+    }
+
+    if (listId) {
+      query.listIds = listId
+    }
+
+    const contacts = await Contact.find(query)
+      .populate("listIds", "name")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+
+    const total = await Contact.countDocuments(query)
+
+    return {
+      contacts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  } catch (error) {
+    logger.error("Error fetching all contacts:", error)
+    throw error
+  }
+}
+
 async function updateContact(contactId, userId, updateData) {
   try {
     const contact = await Contact.findOneAndUpdate(
@@ -530,6 +616,41 @@ async function getContactLists(userId, { page = 1, limit = 10, search = "" }) {
     }
   } catch (error) {
     logger.error("Error fetching contact lists:", error)
+    throw error
+  }
+}
+
+// Admin: fetch all contact lists across users (no userId filter)
+async function getAllContactLists({ page = 1, limit = 10, search = "" }) {
+  try {
+    const query = {}
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } }
+      ]
+    }
+
+    const contactLists = await ContactList.find(query)
+      .populate("contacts", "email firstName lastName company")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+
+    const total = await ContactList.countDocuments(query)
+
+    return {
+      contactLists,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  } catch (error) {
+    logger.error("Error fetching all contact lists:", error)
     throw error
   }
 }
@@ -1345,6 +1466,7 @@ module.exports = {
   // Campaign Management
   createCampaign,
   getCampaigns,
+  getAllCampaigns,
   getCampaignById,
   updateCampaign,
   deleteCampaign,
@@ -1353,12 +1475,14 @@ module.exports = {
   // Contact Management
   createContact,
   getContacts,
+  getAllContacts,
   updateContact,
   deleteContact,
 
   // Contact List Management
   createContactList,
   getContactLists,
+  getAllContactLists,
   updateContactList,
   deleteContactList,
 

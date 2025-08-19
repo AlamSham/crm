@@ -8,10 +8,12 @@ const userSchema = new mongoose.Schema(
     role: { type: String, required: true, enum: ['Merchandiser'], default: 'Merchandiser' },
     avatar: { type: String },
     password: { type: String, required: true, minlength: 6 },
-    // New granular permissions for Merchandiser UI
+    // Granular permissions for Merchandiser UI
     isLeadAccess: { type: Boolean, default: false },
-    isCatalogAccess: { type: Boolean, default: false },
-    isTemplateAccess: { type: Boolean, default: false },
+    isCustomerProfiling: { type: Boolean, default: false },
+    isCustomerEnquiry: { type: Boolean, default: false },
+    isEmailAccess: { type: Boolean, default: false },
+    isFollowUpAccess: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
     lastLogin: { type: Date },
   },

@@ -9,12 +9,21 @@ import type {
 
 const API_BASE_URL = 'http://localhost:5000/api/follow-ups'
 
+const getAdminId = (): string => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('adminId') || ''
+  }
+  return ''
+}
+
 class FollowUpApiService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`
+    const adminId = getAdminId()
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(adminId ? { 'X-Admin-ID': adminId } : {}),
         ...options.headers,
       },
       ...options,

@@ -38,7 +38,7 @@ app.use(cors({
   credentials: true,
   // Include PATCH so preflight for toggle-active works
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-id', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-id', 'x-user-id', 'x-role', 'X-Requested-With', 'x-refresh-token']
 }));
 
 // Note: cors() middleware already handles preflight; no explicit app.options needed for Express 5
@@ -65,12 +65,17 @@ const followupRoutes = require('./routes/followupRoutes');
 app.use('/api/admin/api/followup', followupRoutes);
 // Public (admin/merch via query-based auth)
 app.use('/api/follow-up', followupRoutes);
-// Alias for consistency with frontend: allow /api/followups/* as well
+// Aliases for consistency with various frontends
 app.use('/api/followups', followupRoutes);
+app.use('/api/follow-ups', followupRoutes);
 
 // Catalog routes
 const catalogRoutes = require('./routes/catalogRoutes');
 app.use('/api/catalog', catalogRoutes);
+
+// Merch catalog routes (JWT-protected)
+const merchCatalogRoutes = require('./routes/merchCatalogRoutes');
+app.use('/api/merch/catalog', merchCatalogRoutes);
 
 // User management routes
 const userRoutes = require('./routes/userRoutes');
@@ -91,6 +96,14 @@ app.use('/api/admin/customers', customerRoutes);
 // Enquiry routes (list/create/update/convert)
 const enquiryRoutes = require('./routes/enquiryRoutes');
 app.use('/api/admin/enquiries', enquiryRoutes);
+
+// Merch enquiries (JWT-protected, scoped to merch user)
+const merchEnquiryRoutes = require('./routes/merchEnquiryRoutes');
+app.use('/api/merch/enquiries', merchEnquiryRoutes);
+
+// Merch customers (JWT-protected, scoped to merch user)
+const merchCustomerRoutes = require('./routes/merchCustomerRoutes');
+app.use('/api/merch/customers', merchCustomerRoutes);
 
 // Health check
 app.get('/', (req, res) => {

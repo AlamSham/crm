@@ -1,4 +1,5 @@
 import axiosInstance from "@/lib/axiosInstance"
+import useMerchAuthStore from "@/store/useMerchAuthStore"
 import type {
   Campaign,
   Contact,
@@ -13,20 +14,26 @@ import type {
   PaginationInfo,
 } from "../types/follow-up"
 
-// Helper function to get adminId from localStorage
-const getAdminId = (): string => {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("adminId") || ""
-  }
-  return ""
+// Helper to produce auth headers for both Admin and Merch
+const getAuthHeaders = (): Record<string, string> => {
+  if (typeof window === "undefined") return {}
+  // Prefer merch context if present
+  const { user } = useMerchAuthStore.getState?.() || ({} as any)
+  const userId = user?.id || ""
+  if (userId) return { "x-user-id": userId, "x-role": "merch" }
+  // Fallback to admin
+  const adminId = localStorage.getItem("adminId") || ""
+  return adminId ? { "X-Admin-ID": adminId } : {}
 }
+
+// Use public follow-up base (works for both admin and merch)
+const FOLLOWUP_BASE = "http://localhost:5000/api/follow-up"
 
 // Campaign API
 export const campaignApi = {
   create: async (data: CreateCampaignData): Promise<Campaign> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.post<ApiResponse<Campaign>>("/api/followup/campaigns", data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.post<ApiResponse<Campaign>>(`${FOLLOWUP_BASE}/campaigns`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
@@ -37,10 +44,9 @@ export const campaignApi = {
     search = "",
     status = "",
   ): Promise<{ campaigns: Campaign[]; pagination: PaginationInfo }> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<Campaign[]>>(`/api/followup/campaigns`, {
+    const response = await axiosInstance.get<ApiResponse<Campaign[]>>(`${FOLLOWUP_BASE}/campaigns`, {
       params: { page, limit, search, status },
-      headers: { "X-Admin-ID": adminId },
+      headers: { ...getAuthHeaders() },
     })
     return {
       campaigns: response.data.data,
@@ -49,40 +55,35 @@ export const campaignApi = {
   },
 
   getById: async (id: string): Promise<Campaign> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<Campaign>>(`/api/followup/campaigns/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.get<ApiResponse<Campaign>>(`${FOLLOWUP_BASE}/campaigns/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   update: async (id: string, data: Partial<CreateCampaignData>): Promise<Campaign> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.put<ApiResponse<Campaign>>(`/api/followup/campaigns/${id}`, data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.put<ApiResponse<Campaign>>(`${FOLLOWUP_BASE}/campaigns/${id}`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   delete: async (id: string): Promise<void> => {
-    const adminId = getAdminId()
-    await axiosInstance.delete(`/api/followup/campaigns/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    await axiosInstance.delete(`${FOLLOWUP_BASE}/campaigns/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
   },
 
   start: async (id: string): Promise<Campaign> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.post<ApiResponse<Campaign>>(`/api/followup/campaigns/${id}/start`, {}, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.post<ApiResponse<Campaign>>(`${FOLLOWUP_BASE}/campaigns/${id}/start`, {}, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   pause: async (id: string): Promise<Campaign> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.post<ApiResponse<Campaign>>(`/api/followup/campaigns/${id}/pause`, {}, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.post<ApiResponse<Campaign>>(`${FOLLOWUP_BASE}/campaigns/${id}/pause`, {}, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
@@ -91,9 +92,8 @@ export const campaignApi = {
 // Contact API
 export const contactApi = {
   create: async (data: CreateContactData): Promise<Contact> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.post<ApiResponse<Contact>>("/api/followup/contacts", data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.post<ApiResponse<Contact>>(`${FOLLOWUP_BASE}/contacts`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
@@ -105,10 +105,9 @@ export const contactApi = {
     status = "",
     listId = "",
   ): Promise<{ contacts: Contact[]; pagination: PaginationInfo }> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<Contact[]>>(`/api/followup/contacts`, {
+    const response = await axiosInstance.get<ApiResponse<Contact[]>>(`${FOLLOWUP_BASE}/contacts`, {
       params: { page, limit, search, status, listId },
-      headers: { "X-Admin-ID": adminId },
+      headers: { ...getAuthHeaders() },
     })
     return {
       contacts: response.data.data,
@@ -117,34 +116,30 @@ export const contactApi = {
   },
 
   getById: async (id: string): Promise<Contact> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<Contact>>(`/api/followup/contacts/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.get<ApiResponse<Contact>>(`${FOLLOWUP_BASE}/contacts/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   update: async (id: string, data: Partial<CreateContactData>): Promise<Contact> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.put<ApiResponse<Contact>>(`/api/followup/contacts/${id}`, data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.put<ApiResponse<Contact>>(`${FOLLOWUP_BASE}/contacts/${id}`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   delete: async (id: string): Promise<void> => {
-    const adminId = getAdminId()
-    await axiosInstance.delete(`/api/followup/contacts/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    await axiosInstance.delete(`${FOLLOWUP_BASE}/contacts/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
   },
 
   bulkCreate: async (contacts: CreateContactData[]): Promise<Contact[]> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.post<ApiResponse<Contact[]>>("/api/followup/contacts/bulk", {
+    const response = await axiosInstance.post<ApiResponse<Contact[]>>(`${FOLLOWUP_BASE}/contacts/bulk`, {
       contacts: contacts,
     }, {
-      headers: { "X-Admin-ID": adminId },
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
@@ -153,9 +148,8 @@ export const contactApi = {
 // Contact List API
 export const contactListApi = {
   create: async (data: CreateContactListData): Promise<ContactList> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.post<ApiResponse<ContactList>>("/api/followup/contact-lists", data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.post<ApiResponse<ContactList>>(`${FOLLOWUP_BASE}/contact-lists`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
@@ -165,10 +159,9 @@ export const contactListApi = {
     limit = 10,
     search = "",
   ): Promise<{ contactLists: ContactList[]; pagination: PaginationInfo }> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<ContactList[]>>(`/api/followup/contact-lists`, {
+    const response = await axiosInstance.get<ApiResponse<ContactList[]>>(`${FOLLOWUP_BASE}/contact-lists`, {
       params: { page, limit, search },
-      headers: { "X-Admin-ID": adminId },
+      headers: { ...getAuthHeaders() },
     })
     return {
       contactLists: response.data.data,
@@ -177,48 +170,43 @@ export const contactListApi = {
   },
 
   getById: async (id: string): Promise<ContactList> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<ContactList>>(`/api/followup/contact-lists/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.get<ApiResponse<ContactList>>(`${FOLLOWUP_BASE}/contact-lists/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   update: async (id: string, data: Partial<CreateContactListData>): Promise<ContactList> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.put<ApiResponse<ContactList>>(`/api/followup/contact-lists/${id}`, data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.put<ApiResponse<ContactList>>(`${FOLLOWUP_BASE}/contact-lists/${id}`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   delete: async (id: string): Promise<void> => {
-    const adminId = getAdminId()
-    await axiosInstance.delete(`/api/followup/contact-lists/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    await axiosInstance.delete(`${FOLLOWUP_BASE}/contact-lists/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
   },
 
   addContacts: async (listId: string, contactIds: string[]): Promise<ContactList> => {
-    const adminId = getAdminId()
     const response = await axiosInstance.post<ApiResponse<ContactList>>(
-      `/api/followup/contact-lists/${listId}/contacts`,
+      `${FOLLOWUP_BASE}/contact-lists/${listId}/contacts`,
       {
         contactIds,
       },
       {
-        headers: { "X-Admin-ID": adminId },
+        headers: { ...getAuthHeaders() },
       },
     )
     return response.data.data
   },
 
   removeContact: async (listId: string, contactId: string): Promise<ContactList> => {
-    const adminId = getAdminId()
     const response = await axiosInstance.delete<ApiResponse<ContactList>>(
-      `/api/followup/contact-lists/${listId}/contacts/${contactId}`,
+      `${FOLLOWUP_BASE}/contact-lists/${listId}/contacts/${contactId}`,
       {
-        headers: { "X-Admin-ID": adminId },
+        headers: { ...getAuthHeaders() },
       },
     )
     return response.data.data
@@ -228,9 +216,8 @@ export const contactListApi = {
 // Template API
 export const templateApi = {
   create: async (data: CreateTemplateData): Promise<Template> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.post<ApiResponse<Template>>("/api/followup/templates", data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.post<ApiResponse<Template>>(`${FOLLOWUP_BASE}/templates`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
@@ -241,10 +228,9 @@ export const templateApi = {
     search = "",
     type = "",
   ): Promise<{ templates: Template[]; pagination: PaginationInfo }> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<Template[]>>(`/api/followup/templates`, {
+    const response = await axiosInstance.get<ApiResponse<Template[]>>(`${FOLLOWUP_BASE}/templates`, {
       params: { page, limit, search, type },
-      headers: { "X-Admin-ID": adminId },
+      headers: { ...getAuthHeaders() },
     })
     return {
       templates: response.data.data,
@@ -253,37 +239,33 @@ export const templateApi = {
   },
 
   getById: async (id: string): Promise<Template> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<Template>>(`/api/followup/templates/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.get<ApiResponse<Template>>(`${FOLLOWUP_BASE}/templates/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   update: async (id: string, data: Partial<CreateTemplateData>): Promise<Template> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.put<ApiResponse<Template>>(`/api/followup/templates/${id}`, data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.put<ApiResponse<Template>>(`${FOLLOWUP_BASE}/templates/${id}`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   approve: async (id: string): Promise<Template> => {
-    const adminId = getAdminId()
     const response = await axiosInstance.patch<ApiResponse<Template>>(
-      `/api/followup/templates/${id}/approve`,
+      `${FOLLOWUP_BASE}/templates/${id}/approve`,
       {},
       {
-        headers: { "X-Admin-ID": adminId },
+        headers: { ...getAuthHeaders() },
       },
     )
     return response.data.data
   },
 
   delete: async (id: string): Promise<void> => {
-    const adminId = getAdminId()
-    await axiosInstance.delete(`/api/followup/templates/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    await axiosInstance.delete(`${FOLLOWUP_BASE}/templates/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
   },
 }
@@ -291,9 +273,8 @@ export const templateApi = {
 // Follow-up API
 export const followUpApi = {
   create: async (data: any): Promise<FollowUp> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.post<ApiResponse<FollowUp>>("/api/followup/followups", data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.post<ApiResponse<FollowUp>>(`${FOLLOWUP_BASE}/followups`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
@@ -304,10 +285,9 @@ export const followUpApi = {
     status = "",
     campaignId = "",
   ): Promise<{ followUps: FollowUp[]; pagination: PaginationInfo }> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<FollowUp[]>>(`/api/followup/followups`, {
+    const response = await axiosInstance.get<ApiResponse<FollowUp[]>>(`${FOLLOWUP_BASE}/followups`, {
       params: { page, limit, status, campaignId },
-      headers: { "X-Admin-ID": adminId },
+      headers: { ...getAuthHeaders() },
     })
     return {
       followUps: response.data.data,
@@ -316,34 +296,30 @@ export const followUpApi = {
   },
 
   getById: async (id: string): Promise<FollowUp> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<FollowUp>>(`/api/followup/followups/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.get<ApiResponse<FollowUp>>(`${FOLLOWUP_BASE}/followups/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   update: async (id: string, data: any): Promise<FollowUp> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.put<ApiResponse<FollowUp>>(`/api/followup/followups/${id}`, data, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.put<ApiResponse<FollowUp>>(`${FOLLOWUP_BASE}/followups/${id}`, data, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },
 
   delete: async (id: string): Promise<void> => {
-    const adminId = getAdminId()
-    await axiosInstance.delete(`/api/followup/followups/${id}`, {
-      headers: { "X-Admin-ID": adminId },
+    await axiosInstance.delete(`${FOLLOWUP_BASE}/followups/${id}`, {
+      headers: { ...getAuthHeaders() },
     })
   },
 
   getByCampaign: async (campaignId: string): Promise<FollowUp[]> => {
-    const adminId = getAdminId()
     const response = await axiosInstance.get<ApiResponse<FollowUp[]>>(
-      `/api/followup/followups/campaign/${campaignId}`,
+      `${FOLLOWUP_BASE}/followups/campaign/${campaignId}`,
       {
-        headers: { "X-Admin-ID": adminId },
+        headers: { ...getAuthHeaders() },
       },
     )
     return response.data.data
@@ -353,9 +329,8 @@ export const followUpApi = {
 // Analytics API
 export const analyticsApi = {
   getCampaignStats: async (campaignId: string): Promise<any> => {
-    const adminId = getAdminId()
-    const response = await axiosInstance.get<ApiResponse<any>>(`/api/followup/campaigns/${campaignId}/stats`, {
-      headers: { "X-Admin-ID": adminId },
+    const response = await axiosInstance.get<ApiResponse<any>>(`${FOLLOWUP_BASE}/campaigns/${campaignId}/stats`, {
+      headers: { ...getAuthHeaders() },
     })
     return response.data.data
   },

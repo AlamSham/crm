@@ -54,7 +54,10 @@ async function listPendingTemplatesForAdmin(req, res) {
 // Campaign Controllers
 async function createCampaign(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const campaignData = {
       ...req.body,
       userId
@@ -79,15 +82,22 @@ async function createCampaign(req, res) {
 
 async function getCampaigns(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId, role } = getAuth(req)
     const { page = 1, limit = 10, search = "", status = "" } = req.query
 
-    const result = await followupService.getCampaigns(userId, {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      search: search.toString(),
-      status: status.toString()
-    })
+    const result = role === 'admin'
+      ? await followupService.getAllCampaigns({
+          page: parseInt(page),
+          limit: parseInt(limit),
+          search: search.toString(),
+          status: status.toString()
+        })
+      : await followupService.getCampaigns(userId, {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          search: search.toString(),
+          status: status.toString()
+        })
 
     res.json({
       success: true,
@@ -106,7 +116,10 @@ async function getCampaigns(req, res) {
 
 async function getCampaignById(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { campaignId } = req.params
 
     const campaign = await followupService.getCampaignById(campaignId, userId)
@@ -127,7 +140,10 @@ async function getCampaignById(req, res) {
 
 async function updateCampaign(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { campaignId } = req.params
     const updateData = req.body
 
@@ -150,7 +166,10 @@ async function updateCampaign(req, res) {
 
 async function deleteCampaign(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { campaignId } = req.params
 
     const result = await followupService.deleteCampaign(campaignId, userId)
@@ -171,7 +190,7 @@ async function deleteCampaign(req, res) {
 
 async function startCampaign(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
     const { campaignId } = req.params
 
     logger.info(`Controller: Starting campaign ${campaignId} for user ${userId}`)
@@ -230,7 +249,10 @@ async function startCampaign(req, res) {
 // Contact Controllers
 async function createContact(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const contactData = {
       ...req.body,
       userId
@@ -255,8 +277,25 @@ async function createContact(req, res) {
 
 async function getContacts(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId, role } = getAuth(req)
     const { page = 1, limit = 10, search = "", status = "", listId = "" } = req.query
+
+    // Admin: return all contacts across users
+    if (role === 'admin') {
+      const result = await followupService.getAllContacts({
+        page: parseInt(page),
+        limit: parseInt(limit),
+        search: search.toString(),
+        status: status.toString(),
+        listId: listId.toString()
+      })
+      return res.json({ success: true, data: result.contacts, pagination: result.pagination })
+    }
+
+    // Non-admin (merch): require userId and filter by it
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
 
     const result = await followupService.getContacts(userId, {
       page: parseInt(page),
@@ -283,7 +322,10 @@ async function getContacts(req, res) {
 
 async function updateContact(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { contactId } = req.params
     const updateData = req.body
 
@@ -306,7 +348,10 @@ async function updateContact(req, res) {
 
 async function deleteContact(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { contactId } = req.params
 
     const result = await followupService.deleteContact(contactId, userId)
@@ -328,7 +373,10 @@ async function deleteContact(req, res) {
 // Contact List Controllers
 async function createContactList(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const listData = {
       ...req.body,
       userId
@@ -353,8 +401,23 @@ async function createContactList(req, res) {
 
 async function getContactLists(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId, role } = getAuth(req)
     const { page = 1, limit = 10, search = "" } = req.query
+
+    // Admin: return all lists
+    if (role === 'admin') {
+      const result = await followupService.getAllContactLists({
+        page: parseInt(page),
+        limit: parseInt(limit),
+        search: search.toString()
+      })
+      return res.json({ success: true, data: result.contactLists, pagination: result.pagination })
+    }
+
+    // Non-admin requires userId
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
 
     const result = await followupService.getContactLists(userId, {
       page: parseInt(page),
@@ -379,7 +442,10 @@ async function getContactLists(req, res) {
 
 async function updateContactList(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { listId } = req.params
     const updateData = req.body
 
@@ -402,7 +468,10 @@ async function updateContactList(req, res) {
 
 async function deleteContactList(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
     const { listId } = req.params
 
     const result = await followupService.deleteContactList(listId, userId)
@@ -435,8 +504,8 @@ async function createTemplate(req, res) {
       userId, // backward compatibility
       createdBy: userId,
       createdByRole,
-      // If merch created, force inactive until admin approves
-      isActive: createdByRole === 'merch' ? false : (req.body.isActive ?? true),
+      // Change: merch-created templates are active by default (no approval required)
+      isActive: req.body.isActive ?? true,
       approvedBy: createdByRole === 'admin' ? (userId || null) : null,
       approvedAt: createdByRole === 'admin' ? new Date() : null,
     }
@@ -737,9 +806,13 @@ async function bulkCreateContacts(req, res) {
 
 async function bulkAddContactsToList(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
     const { listId } = req.params
     const { contactIds } = req.body
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'userId is required' })
+    }
 
     if (!Array.isArray(contactIds) || contactIds.length === 0) {
       return res.status(400).json({

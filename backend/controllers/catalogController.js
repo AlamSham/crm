@@ -58,9 +58,9 @@ async function createItem(req, res) {
       createdByRole: role,
       userId, // keep ownership scope
     }
-    // Force pending for merch-created items; if admin then set approved fields
+    // For merch-created items, make them active immediately (no approval step)
     if (role === 'merch') {
-      payload.status = 'pending'
+      payload.status = req.body.status || 'active'
       payload.approvedBy = null
       payload.approvedAt = null
     } else if (role === 'admin') {

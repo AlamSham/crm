@@ -26,6 +26,9 @@ const Reporting = lazy(() =>
 const Settings = lazy(() =>
   import("./admin/_components/Settings")
 );
+const AdminTracking = lazy(() =>
+  import("./admin/_components/tracking")
+);
 
 const MerchandiserLayout = lazy(() =>
   import("./merchandiser/_components/MerchandiserLayout")
@@ -33,17 +36,11 @@ const MerchandiserLayout = lazy(() =>
 const MerchandiserDashboard = lazy(() =>
   import("./merchandiser/_components/MerchandiserDashboard")
 );
-const Catalog = lazy(() =>
-  import("./merchandiser/_components/Catalog")
-);
 const Event = lazy(() =>
   import("./merchandiser/_components/Event")
 );
 const Lead = lazy(() =>
   import("./merchandiser/_components/Lead")
-);
-const Template = lazy(() =>
-  import("./merchandiser/_components/Template")
 );
 const Gmaillayout = lazy(() =>
   import("./admin/_components/email/gmail-layout")
@@ -54,7 +51,15 @@ const FollowUpIndex = lazy(() =>
 const MerchandiserRoot = lazy(() =>
   import("./merchandiser/_components/MerchandiserRoot")
 );
-
+const MerchCustomerEnquiries = lazy(() =>
+  import("./merchandiser/_components/MerchCustomerEnquiries")
+);
+const MerchCustomerProfiling = lazy(() =>
+  import("./merchandiser/_components/MerchCustomerProfiling")
+);
+const MerchTracking = lazy(() =>
+  import("./merchandiser/_components/tracking")
+);
 export default function App() {
   return (
     <Suspense fallback={<div className="text-center mt-10">Loading...</div>}>
@@ -74,45 +79,51 @@ export default function App() {
             path="customer-profile-management"
             element={<CustomerProfileManagement />}
           />
-            <Route
+          <Route
             path="template-Upload"
             element={<TemplateUpload />}
           />
-             <Route
+          <Route
             path="access-Control"
-            element={< AccessControl />}
+            element={<AccessControl />}
           />
-             <Route
+          <Route
             path="reporting"
-            element={< Reporting />}
+            element={<Reporting />}
           />
-             <Route
+          <Route
             path="settings"
-            element={< Settings />}
+            element={<Settings />}
           />
-             <Route
+            <Route
+            path="tracking"
+            element={<AdminTracking />}
+          />
+          <Route
             path="gmaillayout"
-            element={< Gmaillayout />}
+            element={<Gmaillayout />}
           />
-             <Route
+          <Route
             path="follow-ups"
-            element={< FollowUpIndex />}
+            element={<FollowUpIndex />}
           />
-            
         </Route>
-        
-        
-          <Route path="/merchandiser" element={<MerchandiserRoot />}>
-            <Route element={<MerchandiserLayout />}>
-              <Route index element={<Navigate to="merchandiserDashboard" />} />
-              <Route path="merchandiserDashboard" element={<MerchandiserDashboard />} />
-              <Route path="catalog" element={<Catalog />} />
-              <Route path="event" element={<Event />} />
-              <Route path="lead" element={<Lead />} />
-              <Route path="template" element={<Template />} />
-            </Route>
+
+        <Route path="/merchandiser" element={<MerchandiserRoot />}>
+          <Route element={<MerchandiserLayout />}>
+            <Route index element={<Navigate to="merchandiserDashboard" />} />
+            <Route path="merchandiserDashboard" element={<MerchandiserDashboard />} />
+            <Route path="event" element={<Event />} />
+            <Route path="lead" element={<Lead />} />
+            <Route path="email" element={<Gmaillayout />} />
+            <Route path="follow-ups" element={<FollowUpIndex />} />
+            {/* Merch routes; enquiries and profiling reuse admin UIs via dynamic services */}
+            <Route path="customer-enquiries" element={<CustomerEnquiryMangement />} />
+            <Route path="customer-profiling" element={<CustomerProfileManagement />} />
+            <Route path="tracking" element={<MerchTracking />} />
+            
           </Route>
-        
+        </Route>
       </Routes>
     </Suspense>
   );

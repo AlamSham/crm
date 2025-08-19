@@ -12,6 +12,8 @@ export interface CustomerEnquiry {
   notes?: string
   source?: string
   assignedTo?: string
+  createdBy?: { _id: string; name?: string; email?: string } | string
+  createdByModel?: 'User' | 'Admin'
   createdAt?: string
   updatedAt?: string
 }

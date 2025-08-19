@@ -10,10 +10,14 @@ const {
   toggleActive,
   grantLeadAccess,
   revokeLeadAccess,
-  grantCatalogAccess,
-  revokeCatalogAccess,
-  grantTemplateAccess,
-  revokeTemplateAccess,
+  grantCustomerProfiling,
+  revokeCustomerProfiling,
+  grantCustomerEnquiry,
+  revokeCustomerEnquiry,
+  grantEmailAccess,
+  revokeEmailAccess,
+  grantFollowUpAccess,
+  revokeFollowUpAccess,
 } = require('../controllers/userController');
 
 const router = express.Router();
@@ -37,9 +41,13 @@ router.patch('/toggle-active/:id', verifyAccessToken, toggleActive);
 // New granular permission routes
 router.patch('/grant-lead/:id', verifyAccessToken, grantLeadAccess);
 router.patch('/revoke-lead/:id', verifyAccessToken, revokeLeadAccess);
-router.patch('/grant-catalog/:id', verifyAccessToken, grantCatalogAccess);
-router.patch('/revoke-catalog/:id', verifyAccessToken, revokeCatalogAccess);
-router.patch('/grant-template/:id', verifyAccessToken, grantTemplateAccess);
-router.patch('/revoke-template/:id', verifyAccessToken, revokeTemplateAccess);
+router.patch('/grant-customer-profiling/:id', verifyAccessToken, grantCustomerProfiling);
+router.patch('/revoke-customer-profiling/:id', verifyAccessToken, revokeCustomerProfiling);
+router.patch('/grant-customer-enquiry/:id', verifyAccessToken, grantCustomerEnquiry);
+router.patch('/revoke-customer-enquiry/:id', verifyAccessToken, revokeCustomerEnquiry);
+router.patch('/grant-email/:id', verifyAccessToken, grantEmailAccess);
+router.patch('/revoke-email/:id', verifyAccessToken, revokeEmailAccess);
+router.patch('/grant-followup/:id', verifyAccessToken, grantFollowUpAccess);
+router.patch('/revoke-followup/:id', verifyAccessToken, revokeFollowUpAccess);
 
 module.exports = router;

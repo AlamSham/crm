@@ -26,7 +26,11 @@ exports.listEnquiries = async (req, res, next) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     const [items, total] = await Promise.all([
-      CustomerEnquiry.find(q).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      CustomerEnquiry.find(q)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .populate('createdBy', 'name email'),
       CustomerEnquiry.countDocuments(q),
     ]);
 
@@ -40,8 +44,21 @@ exports.listEnquiries = async (req, res, next) => {
 exports.createEnquiry = async (req, res, next) => {
   try {
     const data = req.body || {};
-    const created = await CustomerEnquiry.create(data);
-    res.status(201).json(created);
+    // Determine creator (User or Admin)
+    const creatorId = (req.user && req.user._id) || (req.admin && req.admin._id);
+    const creatorModel = req.user ? 'User' : req.admin ? 'Admin' : null;
+    if (!creatorId || !creatorModel) {
+      return res.status(401).json({ message: 'Unauthorized: missing creator identity' });
+    }
+
+    const created = await CustomerEnquiry.create({
+      ...data,
+      createdBy: creatorId,
+      createdByModel: creatorModel,
+    });
+    // Return populated creator so clients can show name/email immediately
+    const populated = await CustomerEnquiry.findById(created._id).populate('createdBy', 'name email');
+    res.status(201).json(populated);
   } catch (err) {
     next(err);
   }

@@ -35,13 +35,13 @@ const MerchandiserLayout = () => {
   const navLinks = [
     { name: 'Dashboard', icon: <FiGrid size={20} />, path: '/merchandiser/merchandiserDashboard' },
     { name: 'Lead', icon: <FiUsers size={20} />, path: '/merchandiser/lead', permissionKey: 'lead' },
-    { name: 'Template', icon: <FiCheckCircle size={20} />, path: '/merchandiser/template', permissionKey: 'template' },
     { name: 'Event Creation', icon: <FiCalendar size={20} />, path: '/merchandiser/event' },
-    // { name: 'Auto Responses', icon: <FiMail size={20} />, path: '/merchandiser/auto-responses' },
-    // { name: 'Scheduled Comms', icon: <FiClock size={20} />, path: '/merchandiser/scheduled-communications' },
-    // { name: 'Catalog Upload', icon: <FiUpload size={20} />, path: '/merchandiser/catalog-upload' },
-    { name: 'New Catalog', icon: <FiPlus size={20} />, path: '/merchandiser/catalog', permissionKey: 'catalog' },
-    // { name: 'Customer Categories', icon: <FiLayers size={20} />, path: '/merchandiser/customer-categories' },
+    { name: 'Email', icon: <FiLayers size={20} />, path: '/merchandiser/email', permissionKey: 'email' },
+    { name: 'Follow-ups', icon: <FiLayers size={20} />, path: '/merchandiser/follow-ups', permissionKey: 'followUp' },
+    { name: 'Customer Enquiry', icon: <FiUsers size={20} />, path: '/merchandiser/customer-enquiries', permissionKey: 'customerEnquiry' },
+    { name: 'Profiling', icon: <FiCheckCircle size={20} />, path: '/merchandiser/customer-profiling', permissionKey: 'customerProfiling' },
+    { name: 'Tracking', icon: <FiCheckCircle size={20} />, path: '/merchandiser/tracking' },
+    // Removed Catalog and Template from navigation
   ] as const;
 
   const visibleLinks = navLinks.filter((l: any) => {

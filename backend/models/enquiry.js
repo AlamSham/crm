@@ -11,6 +11,8 @@ const CustomerEnquirySchema = new mongoose.Schema(
     notes: { type: String, trim: true },
     source: { type: String, trim: true },
     assignedTo: { type: String, trim: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, required: true, refPath: 'createdByModel' },
+    createdByModel: { type: String, required: true, enum: ['User', 'Admin'] },
   },
   { timestamps: true }
 );

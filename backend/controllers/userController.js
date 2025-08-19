@@ -50,7 +50,7 @@ exports.listUsers = async (req, res) => {
 // Create user
 exports.createUser = async (req, res) => {
   try {
-    const { name, email, active, password, isLeadAccess, isCatalogAccess, isTemplateAccess } = req.body;
+    const { name, email, active, password, isLeadAccess, isCustomerProfiling, isCustomerEnquiry, isEmailAccess, isFollowUpAccess } = req.body;
     if (!name || !email) {
       return res.status(400).json({ message: 'name and email are required' });
     }
@@ -58,7 +58,8 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: 'password (min 6 chars) is required' });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({ message: 'Email already exists' });
     }
@@ -94,16 +95,19 @@ exports.createUser = async (req, res) => {
       }
     }
 
-    const hashed = await bcrypt.hash(String(password), 10);
+    const pwd = String(password).trim();
+    const hashed = await bcrypt.hash(pwd, 10);
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       role: 'Merchandiser',
       active,
       password: hashed,
       isLeadAccess: typeof isLeadAccess === 'string' ? isLeadAccess === 'true' : !!isLeadAccess,
-      isCatalogAccess: typeof isCatalogAccess === 'string' ? isCatalogAccess === 'true' : !!isCatalogAccess,
-      isTemplateAccess: typeof isTemplateAccess === 'string' ? isTemplateAccess === 'true' : !!isTemplateAccess,
+      isCustomerProfiling: typeof isCustomerProfiling === 'string' ? isCustomerProfiling === 'true' : !!isCustomerProfiling,
+      isCustomerEnquiry: typeof isCustomerEnquiry === 'string' ? isCustomerEnquiry === 'true' : !!isCustomerEnquiry,
+      isEmailAccess: typeof isEmailAccess === 'string' ? isEmailAccess === 'true' : !!isEmailAccess,
+      isFollowUpAccess: typeof isFollowUpAccess === 'string' ? isFollowUpAccess === 'true' : !!isFollowUpAccess,
       avatar: avatarUrl || undefined,
     });
     const safe = user.toObject();
@@ -129,24 +133,33 @@ exports.getUser = async (req, res) => {
 // Update user
 exports.updateUser = async (req, res) => {
   try {
-    const { name, active, password, isLeadAccess, isCatalogAccess, isTemplateAccess } = req.body;
+    const { name, active, password, isLeadAccess, isCustomerProfiling, isCustomerEnquiry, isEmailAccess, isFollowUpAccess } = req.body;
 
     const update = { };
     if (typeof name !== 'undefined') update.name = name;
     // role is fixed as 'Merchandiser' and not updatable via API
     if (typeof active !== 'undefined') update.active = active;
-    // removed: isFollowUpPerson, isEmailAccess
+    // update granular permissions
     if (typeof isLeadAccess !== 'undefined') {
       update.isLeadAccess = typeof isLeadAccess === 'string' ? isLeadAccess === 'true' : !!isLeadAccess;
     }
-    if (typeof isCatalogAccess !== 'undefined') {
-      update.isCatalogAccess = typeof isCatalogAccess === 'string' ? isCatalogAccess === 'true' : !!isCatalogAccess;
+    if (typeof isCustomerProfiling !== 'undefined') {
+      update.isCustomerProfiling = typeof isCustomerProfiling === 'string' ? isCustomerProfiling === 'true' : !!isCustomerProfiling;
     }
-    if (typeof isTemplateAccess !== 'undefined') {
-      update.isTemplateAccess = typeof isTemplateAccess === 'string' ? isTemplateAccess === 'true' : !!isTemplateAccess;
+    if (typeof isCustomerEnquiry !== 'undefined') {
+      update.isCustomerEnquiry = typeof isCustomerEnquiry === 'string' ? isCustomerEnquiry === 'true' : !!isCustomerEnquiry;
     }
-    if (typeof password !== 'undefined' && String(password).length >= 6) {
-      update.password = await bcrypt.hash(String(password), 10);
+    if (typeof isEmailAccess !== 'undefined') {
+      update.isEmailAccess = typeof isEmailAccess === 'string' ? isEmailAccess === 'true' : !!isEmailAccess;
+    }
+    if (typeof isFollowUpAccess !== 'undefined') {
+      update.isFollowUpAccess = typeof isFollowUpAccess === 'string' ? isFollowUpAccess === 'true' : !!isFollowUpAccess;
+    }
+    if (typeof password !== 'undefined') {
+      const pwd = String(password).trim();
+      if (pwd.length >= 6) {
+        update.password = await bcrypt.hash(pwd, 10);
+      }
     }
 
     // If new avatar file provided, upload and set
@@ -202,61 +215,119 @@ exports.revokeLeadAccess = async (req, res) => {
   }
 };
 
-// Grant/Revoke Catalog access
-exports.grantCatalogAccess = async (req, res) => {
+// Grant/Revoke Customer Profiling access
+exports.grantCustomerProfiling = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isCatalogAccess = true;
+    user.isCustomerProfiling = true;
     await user.save();
     const safe = user.toObject();
     delete safe.password;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to grant catalog access', error: err.message });
+    res.status(500).json({ message: 'Failed to grant customer profiling access', error: err.message });
   }
 };
 
-exports.revokeCatalogAccess = async (req, res) => {
+exports.revokeCustomerProfiling = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isCatalogAccess = false;
+    user.isCustomerProfiling = false;
     await user.save();
     const safe = user.toObject();
     delete safe.password;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to revoke catalog access', error: err.message });
+    res.status(500).json({ message: 'Failed to revoke customer profiling access', error: err.message });
   }
 };
 
-// Grant/Revoke Template access
-exports.grantTemplateAccess = async (req, res) => {
+// Grant/Revoke Customer Enquiry access
+exports.grantCustomerEnquiry = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isTemplateAccess = true;
+    user.isCustomerEnquiry = true;
     await user.save();
     const safe = user.toObject();
     delete safe.password;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to grant template access', error: err.message });
+    res.status(500).json({ message: 'Failed to grant customer enquiry access', error: err.message });
   }
 };
 
-exports.revokeTemplateAccess = async (req, res) => {
+exports.revokeCustomerEnquiry = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.isTemplateAccess = false;
+    user.isCustomerEnquiry = false;
     await user.save();
     const safe = user.toObject();
     delete safe.password;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ message: 'Failed to revoke template access', error: err.message });
+    res.status(500).json({ message: 'Failed to revoke customer enquiry access', error: err.message });
+  }
+};
+
+// Grant/Revoke Email access
+exports.grantEmailAccess = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.isEmailAccess = true;
+    await user.save();
+    const safe = user.toObject();
+    delete safe.password;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to grant email access', error: err.message });
+  }
+};
+
+exports.revokeEmailAccess = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.isEmailAccess = false;
+    await user.save();
+    const safe = user.toObject();
+    delete safe.password;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to revoke email access', error: err.message });
+  }
+};
+
+// Grant/Revoke Follow-up access
+exports.grantFollowUpAccess = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.isFollowUpAccess = true;
+    await user.save();
+    const safe = user.toObject();
+    delete safe.password;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to grant follow-up access', error: err.message });
+  }
+};
+
+exports.revokeFollowUpAccess = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.isFollowUpAccess = false;
+    await user.save();
+    const safe = user.toObject();
+    delete safe.password;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to revoke follow-up access', error: err.message });
   }
 };
 

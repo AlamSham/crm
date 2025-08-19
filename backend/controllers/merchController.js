@@ -11,10 +11,21 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' })
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() })
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' })
+    const lookupEmail = String(email).toLowerCase()
+    console.log('[merch.login] Attempt with email:', lookupEmail)
+    const user = await User.findOne({ email: lookupEmail })
+    if (!user) {
+      console.log('[merch.login] User not found for email:', lookupEmail)
+      return res.status(401).json({ message: 'Invalid credentials' })
+    }
 
-    const ok = await bcrypt.compare(String(password), user.password)
+    const rawPwd = String(password)
+    let ok = await bcrypt.compare(rawPwd, user.password)
+    if (!ok && rawPwd.trim() !== rawPwd) {
+      // Retry with trimmed password to handle accidental spaces
+      ok = await bcrypt.compare(rawPwd.trim(), user.password)
+    }
+    console.log('[merch.login] Password compare:', ok, 'userId:', user._id.toString())
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' })
 
     // Optional: update lastLogin
@@ -25,6 +36,7 @@ exports.login = async (req, res) => {
     const role = 'merch'
     const accessToken = generateAccessToken(user._id, role)
     const refreshToken = generateRefreshToken(user._id, role)
+    console.log('[merch.login] Issued tokens for userId:', user._id.toString())
 
     res.cookie('merchRefreshToken', refreshToken, {
       httpOnly: true,
@@ -36,8 +48,10 @@ exports.login = async (req, res) => {
     const safe = user.toObject()
     delete safe.password
 
-    return res.status(200).json({ accessToken, user: safe })
+    // Also return refreshToken in body so frontend can store and send via header for cross-site refresh flows
+    return res.status(200).json({ accessToken, refreshToken, user: safe })
   } catch (err) {
+    console.log('[merch.login] Error:', err?.message)
     return res.status(500).json({ message: 'Login failed', error: err.message })
   }
 }
@@ -45,13 +59,19 @@ exports.login = async (req, res) => {
 // Refresh token
 exports.refreshToken = async (req, res) => {
   try {
-    const token = req.cookies?.merchRefreshToken || req.headers['x-refresh-token'] || req.body?.token
+    const cookieToken = req.cookies?.merchRefreshToken
+    const headerToken = req.headers['x-refresh-token']
+    const bodyToken = req.body?.token
+    console.log('[merch.refresh] sources:', { hasCookie: !!cookieToken, hasHeader: !!headerToken, hasBody: !!bodyToken })
+    const token = cookieToken || headerToken || bodyToken
     if (!token) return res.status(401).json({ message: 'Refresh token required' })
 
     const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET)
+    console.log('[merch.refresh] Decoded:', { userId: decoded?.userId, role: decoded?.role })
     const accessToken = generateAccessToken(decoded.userId, decoded.role || 'merch')
     return res.status(200).json({ accessToken })
   } catch (err) {
+    console.log('[merch.refresh] Verify error:', err?.name, err?.message)
     return res.status(403).json({ message: 'Invalid or expired refresh token' })
   }
 }

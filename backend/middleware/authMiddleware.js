@@ -28,6 +28,8 @@ exports.verifyAccessToken = async (req, res, next) => {
 
     req.userId = decoded.userId;
     req.role = decoded.role;
+    // Attach admin for downstream usage
+    req.admin = admin;
     next();
   } catch (err) {
     // Return 401 so clients can refresh access token automatically

@@ -116,6 +116,16 @@ const CustomerProfileManagement = () => {
       ),
     },
     {
+      title: 'Created By',
+      dataIndex: 'createdBy',
+      key: 'createdBy',
+      render: (c: any) => (
+        <Tooltip title={c ? (c.name || c.email || c._id || String(c)) : '—'}>
+          <span>{c ? (c.name || c.email || c._id || String(c)) : '—'}</span>
+        </Tooltip>
+      ),
+    },
+    {
       title: 'Notes',
       dataIndex: 'notes',
       key: 'notes',
@@ -266,6 +276,7 @@ const CustomerProfileManagement = () => {
                 { key: 'address', label: 'Address', children: viewed.address || '—' },
                 { key: 'status', label: 'Status', children: <Tag color={viewed.status === 'Hot' ? 'red' : viewed.status === 'Warm' ? 'orange' : 'blue'} style={{ fontWeight: 600 }}>{viewed.status}</Tag> },
                 { key: 'products', label: 'Interested Products', children: (viewed.interestedProducts?.length ? viewed.interestedProducts.map(p => <Tag key={p}>{p}</Tag>) : '—') },
+                { key: 'createdBy', label: 'Created By', children: (viewed as any).createdBy ? ((viewed as any).createdBy.name || (viewed as any).createdBy.email || (viewed as any).createdBy._id || String((viewed as any).createdBy)) : '—' },
                 { key: 'notes', label: 'Notes', children: viewed.notes || '—' },
               ]}
             />

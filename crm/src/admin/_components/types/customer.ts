@@ -16,6 +16,8 @@ export interface Customer {
   interestedProducts: string[]
   history: CustomerHistoryItem[]
   notes?: string
+  createdBy?: { _id: string; name?: string; email?: string } | string
+  createdByModel?: 'User' | 'Admin'
   createdAt?: string
   updatedAt?: string
 }

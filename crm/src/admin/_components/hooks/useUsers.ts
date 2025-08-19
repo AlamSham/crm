@@ -9,8 +9,10 @@ export type UserRow = {
   active: boolean
   lastLogin: string
   isLeadAccess?: boolean
-  isCatalogAccess?: boolean
-  isTemplateAccess?: boolean
+  isCustomerProfiling?: boolean
+  isCustomerEnquiry?: boolean
+  isEmailAccess?: boolean
+  isFollowUpAccess?: boolean
 }
 
 function toRow(u: User): UserRow {
@@ -21,8 +23,10 @@ function toRow(u: User): UserRow {
     active: u.active,
     lastLogin: u.lastLogin ? new Date(u.lastLogin).toLocaleString() : '',
     isLeadAccess: (u as any).isLeadAccess,
-    isCatalogAccess: (u as any).isCatalogAccess,
-    isTemplateAccess: (u as any).isTemplateAccess,
+    isCustomerProfiling: (u as any).isCustomerProfiling,
+    isCustomerEnquiry: (u as any).isCustomerEnquiry,
+    isEmailAccess: (u as any).isEmailAccess,
+    isFollowUpAccess: (u as any).isFollowUpAccess,
   }
 }
 
@@ -43,9 +47,13 @@ export function useUsers() {
     toggleActive: store.toggleActive,
     grantLeadAccess: store.grantLeadAccess,
     revokeLeadAccess: store.revokeLeadAccess,
-    grantCatalogAccess: store.grantCatalogAccess,
-    revokeCatalogAccess: store.revokeCatalogAccess,
-    grantTemplateAccess: store.grantTemplateAccess,
-    revokeTemplateAccess: store.revokeTemplateAccess,
+    grantCustomerProfiling: store.grantCustomerProfiling,
+    revokeCustomerProfiling: store.revokeCustomerProfiling,
+    grantCustomerEnquiry: store.grantCustomerEnquiry,
+    revokeCustomerEnquiry: store.revokeCustomerEnquiry,
+    grantEmailAccess: store.grantEmailAccess,
+    revokeEmailAccess: store.revokeEmailAccess,
+    grantFollowUpAccess: store.grantFollowUpAccess,
+    revokeFollowUpAccess: store.revokeFollowUpAccess,
   }
 }
