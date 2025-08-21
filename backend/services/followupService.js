@@ -22,7 +22,7 @@ function replaceVariables(str = "", contact = {}, fromAddress = "") {
   const domain = (fromAddress.split('@')[1] || '').split('.')[0] || 'OurCompany'
   const senderCompany = domain.charAt(0).toUpperCase() + domain.slice(1)
   const senderName = senderCompany
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173'
+  const clientUrl = process.env.CLIENT_URL || 'https://crmfrontend-dbc12.web.app'
   const unsubscribeLink = `${clientUrl}/unsubscribe?email=${encodeURIComponent(contact.email || '')}`
   return str
     .replace(/\{\{name\}\}/g, name)

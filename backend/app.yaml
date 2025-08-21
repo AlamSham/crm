@@ -1,47 +1,18 @@
 runtime: nodejs20
 env: standard
-service: backend
+service: default
 
 entrypoint: npm start
 
-instance_class: F2
-automatic_scaling:
-  min_instances: 0
-  max_instances: 5
-  target_cpu_utilization: 0.65
-  target_throughput_utilization: 0.75
-  max_concurrent_requests: 80
-
-# Set your environment variables here
 env_variables:
-  NODE_ENV: "production"
-  # Core
-  PORT: "5000"
   MONGO_URI: "mongodb+srv://crm:crm@cluster0.eu4ezjd.mongodb.net/crm"
-  JWT_SECRET: "htyrtfcdrtfdertfcdrtvcserygbvf"
   ACCESS_TOKEN_SECRET: "htyrtfcdrtfdertfcdrtvcserygbvf"
   REFRESH_TOKEN_SECRET: "iutvdertrdcfrtyhfrtwazswerftf"
-
-  # Frontend URLs used for CORS and unsubscribe links
   FRONTEND_URL: "https://crmfrontend-dbc12.web.app"
   CLIENT_URL: "https://crmfrontend-dbc12.web.app"
-
-  # Default email config (overridden by per-user settings in DB if present)
   EMAIL_USER: "crm@refratexindia.net"
-  # Note: backend/config/emailConfig.js expects EMAIL_PASS
   EMAIL_PASS: "nolk qsun sbqy gihd"
-  SMTP_HOST: "smtp.gmail.com"
-  SMTP_PORT: "465"
-  IMAP_HOST: "imap.gmail.com"
-  IMAP_PORT: "993"
-
-  # Cloudinary
   CLOUDINARY_CLOUD_NAME: "dhy1ot6lf"
   CLOUDINARY_API_KEY: "297362761355144"
   CLOUDINARY_API_SECRET: "cI7-DS43YOdJUYmNXlWLSbbgZ-U"
-
-  # Misc
   EMAIL_CRED_KEY: "sdajbcugducigdebvckhvdvfygqwuy126rr"
-
-# If you plan to use cron.yaml/Cloud Scheduler, make sure your app has a health endpoint.
-# Your server already exposes '/'. App Engine will route all traffic to the Node app.

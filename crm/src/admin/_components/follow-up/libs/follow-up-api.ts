@@ -32,7 +32,7 @@ const getAuthHeaders = (): Record<string, string> => {
 }
 
 // Use public follow-up base (works for both admin and merch)
-const FOLLOWUP_BASE = "http://localhost:5000/api/follow-up"
+const FOLLOWUP_BASE = "https://crmbackend-469714.el.r.appspot.com/api/follow-up"
 
 // Campaign API
 export const campaignApi = {

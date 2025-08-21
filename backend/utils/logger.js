@@ -1,11 +1,32 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-// Create logs directory if it doesn't exist
-const logsDir = path.join(__dirname, '../logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
+// Create logs directory if it doesn't exist, with fallbacks for read-only FS
+let logsDir = process.env.LOG_DIR || path.join(__dirname, '../logs');
+let fileLoggingEnabled = true;
+
+const ensureLogsDir = () => {
+  try {
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+  } catch (e) {
+    // Attempt to fallback to a writable tmp directory
+    try {
+      const tmpLogs = path.join(os.tmpdir(), 'logs');
+      if (!fs.existsSync(tmpLogs)) {
+        fs.mkdirSync(tmpLogs, { recursive: true });
+      }
+      logsDir = tmpLogs;
+    } catch (e2) {
+      // Disable file logging if even tmp dir is not writable
+      fileLoggingEnabled = false;
+    }
+  }
+};
+
+ensureLogsDir();
 
 // Log levels
 const LOG_LEVELS = {
@@ -48,12 +69,25 @@ const formatMessage = (level, message, data = null) => {
   return JSON.stringify(logEntry);
 };
 
-// Write to file
+// Write to file (gracefully degrade on read-only filesystems)
 const writeToFile = (filename, content) => {
+  if (!fileLoggingEnabled) return;
   const filePath = path.join(logsDir, filename);
   const logEntry = content + '\n';
-  
-  fs.appendFileSync(filePath, logEntry);
+  try {
+    fs.appendFileSync(filePath, logEntry);
+  } catch (e) {
+    // Disable file logging on common immutable FS errors
+    if (['EROFS', 'EACCES', 'ENOSPC'].includes(e.code)) {
+      fileLoggingEnabled = false;
+      // Best-effort notify via console without causing recursive logging
+      const timestamp = new Date().toISOString();
+      console.log(`[[WARN]] ${timestamp} - File logging disabled, falling back to console only: ${e.code} ${e.message}`);
+    } else {
+      // Re-throw unexpected errors to aid debugging
+      throw e;
+    }
+  }
 };
 
 // Console output with colors
@@ -166,35 +200,41 @@ const logger = {
 
   // Get log files info
   getLogStats: () => {
-    const files = fs.readdirSync(logsDir);
-    const stats = {};
-    
-    files.forEach(file => {
-      const filePath = path.join(logsDir, file);
-      const stat = fs.statSync(filePath);
-      stats[file] = {
-        size: stat.size,
-        modified: stat.mtime
-      };
-    });
-    
-    return stats;
+    if (!fileLoggingEnabled) return {};
+    try {
+      const files = fs.readdirSync(logsDir);
+      const stats = {};
+      files.forEach(file => {
+        const filePath = path.join(logsDir, file);
+        const stat = fs.statSync(filePath);
+        stats[file] = {
+          size: stat.size,
+          modified: stat.mtime
+        };
+      });
+      return stats;
+    } catch (e) {
+      return {};
+    }
   },
 
   // Clean old logs (keep last 7 days)
   cleanOldLogs: () => {
-    const files = fs.readdirSync(logsDir);
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    
-    files.forEach(file => {
-      const filePath = path.join(logsDir, file);
-      const stat = fs.statSync(filePath);
-      
-      if (stat.mtime < sevenDaysAgo) {
-        fs.unlinkSync(filePath);
-        logger.info(`Cleaned old log file: ${file}`);
-      }
-    });
+    if (!fileLoggingEnabled) return;
+    try {
+      const files = fs.readdirSync(logsDir);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      files.forEach(file => {
+        const filePath = path.join(logsDir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.mtime < sevenDaysAgo) {
+          fs.unlinkSync(filePath);
+          logger.info(`Cleaned old log file: ${file}`);
+        }
+      });
+    } catch (_e) {
+      // ignore
+    }
   }
 };
 
