@@ -31,10 +31,9 @@ const getAdminToken = (): string => {
 }
 
 const isMerch = () => {
-  const hasToken = !!getMerchToken()
-  // Fallback detection: if user is on merchandiser routes, prefer merch endpoints
+  // Determine context strictly by pathname to avoid stale merch token on admin UI
   const onMerchPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/merchandiser')
-  return hasToken || onMerchPath
+  return onMerchPath
 }
 
 const getPrefix = () => (isMerch() ? '/api/merch/catalog' : '/api/catalog')
@@ -76,8 +75,9 @@ async function http<T>(suffixPath: string, options: RequestInit = {}): Promise<T
     'Content-Type': 'application/json',
     ...(adminId ? { 'X-Admin-ID': adminId } : {}),
   }
-  if (merchToken) headers['Authorization'] = `Bearer ${merchToken}`
-  else if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`
+  const useMerch = isMerch()
+  const bearer = useMerch ? merchToken : adminToken
+  if (bearer) headers['Authorization'] = `Bearer ${bearer}`
   const doFetch = (hdrs: Record<string, string>) => fetch(`${API_URL}${getPrefix()}${suffixPath}`, {
     credentials: 'include',
     headers: { ...hdrs, ...(options.headers || {}) },
@@ -194,8 +194,8 @@ export const catalogApi = {
     const path = isMerch() ? '/api/merch/catalog/upload/image' : '/api/catalog/upload/image'
     const headers: Record<string, string> = {}
     if (adminId) headers['X-Admin-ID'] = adminId
-    if (merchToken) headers['Authorization'] = `Bearer ${merchToken}`
-    else if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`
+    const bearer = isMerch() ? merchToken : adminToken
+    if (bearer) headers['Authorization'] = `Bearer ${bearer}`
     const res = await fetch(`${API_URL}${path}`, {
       method: 'POST',
       body: form,
@@ -219,8 +219,8 @@ export const catalogApi = {
     const path = isMerch() ? '/api/merch/catalog/upload/file' : '/api/catalog/upload/file'
     const headers: Record<string, string> = {}
     if (adminId) headers['X-Admin-ID'] = adminId
-    if (merchToken) headers['Authorization'] = `Bearer ${merchToken}`
-    else if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`
+    const bearer = isMerch() ? merchToken : adminToken
+    if (bearer) headers['Authorization'] = `Bearer ${bearer}`
     const res = await fetch(`${API_URL}${path}`, {
       method: 'POST',
       body: form,

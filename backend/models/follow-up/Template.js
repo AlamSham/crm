@@ -15,6 +15,8 @@ const templateSchema = new mongoose.Schema(
       required: false,
     },
     textContent: String,
+    // If true and htmlContent is empty, send as text-only email (no HTML fallback)
+    forceTextOnly: { type: Boolean, default: false },
     variables: {
       type: [String],
       default: [],

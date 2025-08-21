@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const emailController = require('../controllers/emailController');
+const anyAuth = require('../middleware/anyAuthMiddleware');
 
 // Configure multer for handling file uploads
 const upload = multer({
@@ -11,6 +12,9 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
 });
+
+// Protect all email routes to enforce per-user settings
+router.use(anyAuth);
 
 // Email routes
 router.get('/all', emailController.allMails);

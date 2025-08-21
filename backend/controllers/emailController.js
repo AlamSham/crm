@@ -1,6 +1,50 @@
 // controllers/emailController.js
 const emailService = require("../services/emailService")
 const emailEvents = require("../services/emailEvents")
+const Admin = require("../models/admin")
+const User = require("../models/user")
+const { decrypt } = require("../utils/crypto")
+const envEmail = require("../config/emailConfig")
+
+// Build effective email config using per-user settings if available; otherwise fallback to env
+async function resolveEmailConfig(req) {
+  // Defaults from env
+  const base = {
+    user: envEmail.user,
+    password: envEmail.password,
+    imapHost: envEmail.imapHost,
+    imapPort: envEmail.imapPort,
+    smtpHost: envEmail.smtpHost,
+    smtpPort: envEmail.smtpPort,
+    fromName: undefined,
+  }
+
+  // If request is authenticated and we have a userId, try to load per-user settings
+  const id = req.userId
+  if (id) {
+    // Try Admin first
+    let doc = await Admin.findById(id).select('emailSettings')
+    if (!doc) {
+      // Then try Merch/User
+      doc = await User.findById(id).select('emailSettings')
+    }
+    const s = doc?.emailSettings
+    if (s && s.enabled !== false && s.user) {
+      return {
+        user: s.user || base.user,
+        password: s.passwordEnc ? decrypt(s.passwordEnc) : base.password,
+        imapHost: s.imapHost || base.imapHost,
+        imapPort: s.imapPort || base.imapPort,
+        smtpHost: s.smtpHost || base.smtpHost,
+        smtpPort: s.smtpPort || base.smtpPort,
+        fromName: s.fromName,
+      }
+    }
+  }
+
+  // Fallback to env-based config
+  return base
+}
 
 function sortThreadsAndEmails(threads) {
   return threads.map((thread) => ({
@@ -16,11 +60,12 @@ function sortThreadsAndEmails(threads) {
 async function spamMails(req, res) {
   try {
     const { page = 1, limit = 10, search = "" } = req.query
+    const cfg = await resolveEmailConfig(req)
     const threads = await emailService.fetchSpamMails({
       page: parseInt(page),
       limit: parseInt(limit),
       search: search.toString(),
-    })
+    }, cfg)
     const sortedThreads = sortThreadsAndEmails(threads)
     res.json({
       success: true,
@@ -44,11 +89,12 @@ async function spamMails(req, res) {
 async function allMails(req, res) {
   try {
     const { page = 1, limit = 10, search = "" } = req.query
+    const cfg = await resolveEmailConfig(req)
     const threads = await emailService.fetchAllMails({
       page: parseInt(page),
       limit: parseInt(limit),
       search: search.toString(),
-    })
+    }, cfg)
     const sortedThreads = sortThreadsAndEmails(threads)
     res.json({
       success: true,
@@ -72,11 +118,12 @@ async function allMails(req, res) {
 async function sentMails(req, res) {
   try {
     const { page = 1, limit = 10, search = "" } = req.query
+    const cfg = await resolveEmailConfig(req)
     const threads = await emailService.fetchSentMails({
       page: parseInt(page),
       limit: parseInt(limit),
       search: search.toString(),
-    })
+    }, cfg)
     const sortedThreads = sortThreadsAndEmails(threads)
     res.json({
       success: true,
@@ -100,11 +147,20 @@ async function sentMails(req, res) {
 async function receivedMails(req, res) {
   try {
     const { page = 1, limit = 10, search = "" } = req.query
+    const cfg = await resolveEmailConfig(req)
+    // Debug: which user is fetching and which email account is used
+    console.log('Emails.received requested', {
+      userId: req.userId,
+      role: req.role,
+      emailUser: cfg.user,
+      imapHost: cfg.imapHost,
+      imapPort: cfg.imapPort,
+    })
     const threads = await emailService.fetchReceivedMails({
       page: parseInt(page),
       limit: parseInt(limit),
       search: search.toString(),
-    })
+    }, cfg)
     const sortedThreads = sortThreadsAndEmails(threads)
     res.json({
       success: true,
@@ -166,7 +222,8 @@ async function sendEmail(req, res) {
       });
     }
 
-    const result = await emailService.sendEmail(emailData);
+    const cfg = await resolveEmailConfig(req)
+    const result = await emailService.sendEmail(emailData, cfg);
 
     res.json({
       success: true,
@@ -236,7 +293,8 @@ async function replyToEmail(req, res) {
       });
     }
 
-    const result = await emailService.replyToEmail(replyData);
+    const cfg = await resolveEmailConfig(req)
+    const result = await emailService.replyToEmail(replyData, cfg);
 
     res.json({
       success: true,

@@ -6,6 +6,24 @@ import type { ApiResponse, EmailThread } from "../types/email"
 // Prefer Vite env for API base; fallback to localhost for dev
 const API_BASE_URL = `${import.meta.env.VITE_API_URL ?? "http://localhost:5000"}/api/emails`
 
+// Helper to attach Authorization header when token is present
+function buildHeaders(token: string): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+// Detect merch context by pathname; emails API accepts both roles via anyAuth
+function isMerch(): boolean {
+  return typeof window !== 'undefined' && window.location.pathname.startsWith('/merchandiser')
+}
+
+// Pick the right token based on context. Prefer merch token on merch UI
+function getAccessToken(): string {
+  if (typeof window === 'undefined') return ''
+  const merch = localStorage.getItem('merchAccessToken') || ''
+  const admin = localStorage.getItem('accessToken') || localStorage.getItem('adminAccessToken') || localStorage.getItem('token') || ''
+  return isMerch() ? (merch || admin) : (admin || merch)
+}
+
 export type MailboxType = "all" | "sent" | "received" | "spam"
 
 export function useEmails() {
@@ -71,7 +89,9 @@ export function useEmails() {
 
         const url = `${API_BASE_URL}/${mailbox}?${params}`
         console.log(`Fetching emails from: ${url}`)
-        const response = await fetch(url, { signal: controller.signal })
+        const token = getAccessToken()
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+        const response = await fetch(url, { signal: controller.signal, headers })
 
         if (!response.ok) {
           throw new Error(`Failed to fetch emails: ${response.status}`)
@@ -139,17 +159,23 @@ export function useEmails() {
           formData.append("attachments", file)
         })
 
+        const token = getAccessToken()
+        const headers = buildHeaders(token)
         response = await fetch(`${API_BASE_URL}/send-email`, {
           method: "POST",
           body: formData,
+          headers,
         })
       } else {
         // If no attachments, send JSON
+        const token = getAccessToken()
+        const headers = {
+          "Content-Type": "application/json",
+          ...buildHeaders(token),
+        }
         response = await fetch(`${API_BASE_URL}/send-email`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
           body: JSON.stringify({
             to: emailData.to,
             cc: emailData.cc || "",
@@ -205,17 +231,23 @@ export function useEmails() {
           formData.append("attachments", file)
         })
 
+        const token = getAccessToken()
+        const headers = buildHeaders(token)
         response = await fetch(`${API_BASE_URL}/reply-email`, {
           method: "POST",
           body: formData,
+          headers,
         })
       } else {
         // If no attachments, send JSON
+        const token = getAccessToken()
+        const headers = {
+          "Content-Type": "application/json",
+          ...buildHeaders(token),
+        }
         response = await fetch(`${API_BASE_URL}/reply-email`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
           body: JSON.stringify({
             to: replyData.to,
             cc: replyData.cc || "",
@@ -282,7 +314,9 @@ export function useEmails() {
 
   // Listen to Server-Sent Events for lightweight realtime updates
   useEffect(() => {
-    const streamUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:5000"}/api/emails/stream`
+    const rawBase = import.meta.env.VITE_API_URL ?? "http://localhost:5000"
+    const token = getAccessToken()
+    const streamUrl = `${rawBase}/api/emails/stream${token ? `?accessToken=${encodeURIComponent(token)}` : ""}`
     const es = new EventSource(streamUrl, { withCredentials: true })
 
     const handleEmailNew = (payloadStr: string) => {

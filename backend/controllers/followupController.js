@@ -4,11 +4,29 @@ const logger = require("../utils/logger")
 
 // Helper to extract auth from header/body/query for quick merch integration
 function getAuth(req) {
-  const headerId = req.headers['x-admin-id'] || req.headers['x-user-id']
+  const adminHeaderId = req.headers['x-admin-id']
+  const userHeaderId = req.headers['x-user-id']
   const bodyId = req.body?.adminId || req.body?.userId
   const queryId = req.query?.userId
-  const userId = headerId || bodyId || queryId || null
-  const role = (req.role) || req.headers['x-role'] || req.query?.role || (userId ? 'admin' : null)
+  // IMPORTANT: Prefer explicit header role (impersonation) over middleware-injected req.role
+  const explicitRole = req.headers['x-role'] || req.role || req.query?.role
+
+  // Decide role and user precedence
+  let role = explicitRole
+  let userId = null
+
+  if (role === 'merch') {
+    // Impersonation or merch: prefer x-user-id
+    userId = userHeaderId || bodyId || queryId || null
+  } else if (role === 'admin') {
+    // Admin-only
+    userId = adminHeaderId || bodyId || queryId || null
+  } else {
+    // No explicit role: infer sensibly. If both present, prefer user header for scoping.
+    userId = userHeaderId || adminHeaderId || bodyId || queryId || null
+    role = adminHeaderId && !userHeaderId ? 'admin' : (userId ? 'merch' : null)
+  }
+
   return { userId, role }
 }
 
@@ -84,15 +102,20 @@ async function getCampaigns(req, res) {
   try {
     const { userId, role } = getAuth(req)
     const { page = 1, limit = 10, search = "", status = "" } = req.query
+    // Strict guard: if a specific x-user-id (or resolved userId) exists, always scope by user
+    const headerUserId = req.headers['x-user-id']
+    const effectiveUserId = headerUserId || userId
 
-    const result = role === 'admin'
-      ? await followupService.getAllCampaigns({
+    const isUserScoped = !!effectiveUserId // when impersonating or merch
+
+    const result = isUserScoped
+      ? await followupService.getCampaigns(effectiveUserId, {
           page: parseInt(page),
           limit: parseInt(limit),
           search: search.toString(),
           status: status.toString()
         })
-      : await followupService.getCampaigns(userId, {
+      : await followupService.getAllCampaigns({
           page: parseInt(page),
           limit: parseInt(limit),
           search: search.toString(),
@@ -279,31 +302,26 @@ async function getContacts(req, res) {
   try {
     const { userId, role } = getAuth(req)
     const { page = 1, limit = 10, search = "", status = "", listId = "" } = req.query
+    // Strict guard: if x-user-id (or resolved userId) exists, always scope by user
+    const headerUserId = req.headers['x-user-id']
+    const effectiveUserId = headerUserId || userId
+    const isUserScoped = !!effectiveUserId
 
-    // Admin: return all contacts across users
-    if (role === 'admin') {
-      const result = await followupService.getAllContacts({
-        page: parseInt(page),
-        limit: parseInt(limit),
-        search: search.toString(),
-        status: status.toString(),
-        listId: listId.toString()
-      })
-      return res.json({ success: true, data: result.contacts, pagination: result.pagination })
-    }
-
-    // Non-admin (merch): require userId and filter by it
-    if (!userId) {
-      return res.status(400).json({ success: false, message: 'userId is required' })
-    }
-
-    const result = await followupService.getContacts(userId, {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      search: search.toString(),
-      status: status.toString(),
-      listId: listId.toString()
-    })
+    const result = isUserScoped
+      ? await followupService.getContacts(effectiveUserId, {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          search: search.toString(),
+          status: status.toString(),
+          listId: listId.toString()
+        })
+      : await followupService.getAllContacts({
+          page: parseInt(page),
+          limit: parseInt(limit),
+          search: search.toString(),
+          status: status.toString(),
+          listId: listId.toString()
+        })
 
     res.json({
       success: true,
@@ -403,27 +421,22 @@ async function getContactLists(req, res) {
   try {
     const { userId, role } = getAuth(req)
     const { page = 1, limit = 10, search = "" } = req.query
+    // Strict guard: if x-user-id (or resolved userId) exists, always scope by user
+    const headerUserId = req.headers['x-user-id']
+    const effectiveUserId = headerUserId || userId
+    const isUserScoped = !!effectiveUserId
 
-    // Admin: return all lists
-    if (role === 'admin') {
-      const result = await followupService.getAllContactLists({
-        page: parseInt(page),
-        limit: parseInt(limit),
-        search: search.toString()
-      })
-      return res.json({ success: true, data: result.contactLists, pagination: result.pagination })
-    }
-
-    // Non-admin requires userId
-    if (!userId) {
-      return res.status(400).json({ success: false, message: 'userId is required' })
-    }
-
-    const result = await followupService.getContactLists(userId, {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      search: search.toString()
-    })
+    const result = isUserScoped
+      ? await followupService.getContactLists(effectiveUserId, {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          search: search.toString()
+        })
+      : await followupService.getAllContactLists({
+          page: parseInt(page),
+          limit: parseInt(limit),
+          search: search.toString()
+        })
 
     res.json({
       success: true,
@@ -552,24 +565,23 @@ async function getTemplates(req, res) {
   try {
     const { userId, role } = getAuth(req)
     const { page = 1, limit = 10, search = "", type = "", isActive, approvedOnly } = req.query
+    // Strict guard: if x-user-id (or resolved userId) exists, always scope by user
+    const headerUserId = req.headers['x-user-id']
+    const effectiveUserId = headerUserId || userId
+    const isUserScoped = !!effectiveUserId
 
-    const result = role === 'admin'
-      ? await followupService.getAllTemplates({
-          page: parseInt(page),
-          limit: parseInt(limit),
-          search: search.toString(),
-          type: type.toString(),
-          isActive: typeof isActive !== 'undefined' ? (isActive === 'true' || isActive === true || isActive === '1') : undefined,
-          approvedOnly: !!(approvedOnly === 'true' || approvedOnly === true || approvedOnly === '1'),
-        })
-      : await followupService.getTemplates(userId, {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          search: search.toString(),
-          type: type.toString(),
-          isActive: typeof isActive !== 'undefined' ? (isActive === 'true' || isActive === true || isActive === '1') : undefined,
-          approvedOnly: !!(approvedOnly === 'true' || approvedOnly === true || approvedOnly === '1'),
-        })
+    const commonOptions = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      search: search.toString(),
+      type: type.toString(),
+      isActive: typeof isActive !== 'undefined' ? (isActive === 'true' || isActive === true || isActive === '1') : undefined,
+      approvedOnly: !!(approvedOnly === 'true' || approvedOnly === true || approvedOnly === '1'),
+    }
+
+    const result = isUserScoped
+      ? await followupService.getTemplates(effectiveUserId, commonOptions)
+      : await followupService.getAllTemplates(commonOptions)
 
     res.json({
       success: true,
@@ -639,7 +651,7 @@ async function deleteTemplate(req, res) {
 // Follow-up Controllers
 async function createFollowup(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
     const followupData = {
       ...req.body,
       userId
@@ -664,7 +676,7 @@ async function createFollowup(req, res) {
 
 async function getFollowups(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
     const { page = 1, limit = 10, status = "", campaignId = "" } = req.query
 
     const result = await followupService.getFollowups(userId, {
@@ -691,7 +703,7 @@ async function getFollowups(req, res) {
 
 async function updateFollowup(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
     const { followupId } = req.params
     const updateData = req.body
 
@@ -714,7 +726,7 @@ async function updateFollowup(req, res) {
 
 async function deleteFollowup(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
     const { followupId } = req.params
 
     const result = await followupService.deleteFollowup(followupId, userId)
@@ -736,7 +748,7 @@ async function deleteFollowup(req, res) {
 // Analytics Controllers
 async function getCampaignStats(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
     const { campaignId } = req.params
 
     const stats = await followupService.getCampaignStats(campaignId, userId)
@@ -758,7 +770,7 @@ async function getCampaignStats(req, res) {
 // Bulk Operations
 async function bulkCreateContacts(req, res) {
   try {
-    const userId = req.headers['x-admin-id'] || req.body.adminId
+    const { userId } = getAuth(req)
     const { contacts } = req.body
 
     if (!Array.isArray(contacts) || contacts.length === 0) {

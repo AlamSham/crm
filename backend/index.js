@@ -58,6 +58,13 @@ app.use('/api/admin', adminRoutes);
 const merchRoutes = require('./routes/merchRoutes');
 app.use('/api/merch', merchRoutes);
 
+// Email settings routes (JWT-protected)
+const adminEmailSettingsRoutes = require('./routes/adminEmailSettingsRoutes');
+app.use('/api/admin/email-settings', adminEmailSettingsRoutes);
+
+const merchEmailSettingsRoutes = require('./routes/merchEmailSettingsRoutes');
+app.use('/api/merch/email-settings', merchEmailSettingsRoutes);
+
 const emailRoutes = require('./routes/emailRoutes');
 app.use('/api/emails', emailRoutes);
 

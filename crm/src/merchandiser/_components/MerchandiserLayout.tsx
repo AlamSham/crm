@@ -7,12 +7,14 @@ import {
   FiLayers, FiCheckCircle, FiPlus
 } from 'react-icons/fi';
 import merchAxios from '@/lib/merchAxios'
+import MerchEmailSettingsModal from './MerchEmailSettingsModal'
 import useMerchAuthStore from '@/store/useMerchAuthStore'
 
 const MerchandiserLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [emailSettingsOpen, setEmailSettingsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useMerchAuthStore()
@@ -199,6 +201,15 @@ const MerchandiserLayout = () => {
                       Help
                     </div>
                   </a> */}
+                  <button
+                    onClick={() => { setEmailSettingsOpen(true); setUserDropdownOpen(false) }}
+                    className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center">
+                      <FiLayers className="mr-2" size={16} />
+                      Email Settings
+                    </div>
+                  </button>
                   <div className="border-t border-gray-200 my-1"></div>
                   <button
                     onClick={async () => {
@@ -237,6 +248,11 @@ const MerchandiserLayout = () => {
           </div>
         </main>
       </div>
+
+      {/* Email Settings Modal */}
+      {emailSettingsOpen && (
+        <MerchEmailSettingsModal open={emailSettingsOpen} onClose={() => setEmailSettingsOpen(false)} />
+      )}
     </div>
   );
 };

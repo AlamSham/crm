@@ -9,6 +9,10 @@ const Unsubscribe = require("../models/follow-up/Unsubscribe")
 const emailService = require("./emailService")
 const logger = require("../utils/logger")
 const CatalogItem = require("../models/catalog/CatalogItem")
+const Admin = require("../models/admin")
+const User = require("../models/user")
+const { decrypt } = require("../utils/crypto")
+const envEmail = require("../config/emailConfig")
 
 // Simple variable replacement for templates
 function replaceVariables(str = "", contact = {}, fromAddress = "") {
@@ -26,6 +30,41 @@ function replaceVariables(str = "", contact = {}, fromAddress = "") {
     .replace(/\{\{senderName\}\}/g, senderName)
     .replace(/\{\{senderCompany\}\}/g, senderCompany)
     .replace(/\{\{unsubscribeLink\}\}/g, unsubscribeLink)
+}
+
+// Resolve effective email config for a given userId (admin or merchant)
+async function resolveEmailConfigByUserId(userId) {
+  // Defaults from env
+  const base = {
+    user: envEmail.user,
+    password: envEmail.password,
+    imapHost: envEmail.imapHost,
+    imapPort: envEmail.imapPort,
+    smtpHost: envEmail.smtpHost,
+    smtpPort: envEmail.smtpPort,
+    fromName: undefined,
+  }
+
+  if (!userId) return base
+
+  let doc = await Admin.findById(userId).select('emailSettings')
+  if (!doc) {
+    doc = await User.findById(userId).select('emailSettings')
+  }
+  const s = doc?.emailSettings
+  if (s && s.enabled !== false && s.user) {
+    return {
+      user: s.user || base.user,
+      password: s.passwordEnc ? decrypt(s.passwordEnc) : base.password,
+      imapHost: s.imapHost || base.imapHost,
+      imapPort: s.imapPort || base.imapPort,
+      smtpHost: s.smtpHost || base.smtpHost,
+      smtpPort: s.smtpPort || base.smtpPort,
+      fromName: s.fromName,
+    }
+  }
+
+  return base
 }
 
 // Admin: list templates across all users (no userId filter)
@@ -91,8 +130,10 @@ async function processDueEmails() {
 
         const computedHtml = await buildEmailHtmlWithCatalog(template)
         const computedText = await buildEmailTextWithCatalog(template)
-        const finalHtml = replaceVariables(computedHtml, contact, emailService?.emailConfig?.user || '')
-        const finalText = replaceVariables(computedText, contact, emailService?.emailConfig?.user || '')
+        // Resolve per-user email config using the email's userId
+        const cfg = await resolveEmailConfigByUserId(email.userId || email.user)
+        const finalHtml = replaceVariables(computedHtml, contact, cfg.user || '')
+        const finalText = replaceVariables(computedText, contact, cfg.user || '')
 
         // update contents before sending
         email.htmlContent = finalHtml
@@ -102,8 +143,8 @@ async function processDueEmails() {
           to: contact.email,
           subject: email.subject,
           text: finalText,
-          html: finalHtml,
-        })
+          html: finalHtml || undefined,
+        }, cfg)
 
         email.status = 'sent'
         email.sentAt = new Date()
@@ -188,26 +229,40 @@ function renderCatalogHTML(items = [], layout = "grid2", showPrices = false) {
     const tds = slice
       .map((it) => {
         const img = (it.images && it.images[0] && it.images[0].url) || ""
+        const firstFile = (it.files && it.files[0]) || null
+        const fileUrl = firstFile?.url || ""
+        const fileName = firstFile?.originalFilename || "File"
+        const fileType = firstFile?.mimeType || firstFile?.resourceType || ""
         const price = typeof it.price === "number" ? `₹${it.price.toFixed(2)}` : ""
         const title = it.title || "Item"
-        const url = it.url || "#"
+        const url = it.url || fileUrl || "#"
+        const hasClickable = !!(url && url !== "#")
+        const fileBlock = (!img && fileUrl)
+          ? (`<div style="padding:12px;text-align:center;background:#f7f7f7;border-top:1px solid #eee;">
+                <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#333;margin-bottom:8px;">
+                  📎 ${fileName}${fileType ? ` <span style='color:#777'>( ${fileType} )</span>` : ''}
+                </div>
+                <a href="${fileUrl}" target="_blank" style="display:inline-block;padding:8px 12px;background:#0b5ed7;color:#fff;text-decoration:none;border-radius:4px;">Open file</a>
+              </div>`)
+          : ""
         return (
           `<td width="${colWidth}%" valign="top" style="padding:8px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee;border-radius:6px;overflow:hidden;">
               <tr>
                 <td style="text-align:center;background:#fafafa;">
-                  ${img ? `<a href="${url}" target="_blank"><img src="${img}" alt="${title}" style="display:block;width:100%;max-width:260px;height:auto;border:0;"/></a>` : ""}
+                  ${img ? (hasClickable ? `<a href="${url}" target="_blank"><img src="${img}" alt="${title}" style="display:block;width:100%;max-width:260px;height:auto;border:0;"/></a>` : `<img src="${img}" alt="${title}" style="display:block;width:100%;max-width:260px;height:auto;border:0;"/>`) : ""}
                 </td>
               </tr>
               <tr>
                 <td style="padding:10px 12px;">
                   <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;font-weight:600;line-height:1.3;">
-                    <a href="${url}" target="_blank" style="color:#111;text-decoration:none;">${title}</a>
+                    ${hasClickable ? `<a href="${url}" target="_blank" style="color:#111;text-decoration:none;">${title}</a>` : `${title}`}
                   </div>
                   ${it.description ? `<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#555;margin-top:6px;\">${it.description}</div>` : ""}
                   ${showPrices && price ? `<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111;margin-top:8px;font-weight:700;\">${price}</div>` : ""}
                 </td>
               </tr>
+              ${fileBlock ? `<tr><td>${fileBlock}</td></tr>` : ""}
             </table>
           </td>`
         )
@@ -221,6 +276,15 @@ function renderCatalogHTML(items = [], layout = "grid2", showPrices = false) {
   </table>`
 }
 
+// Fallback: wrap plain text into a simple HTML block for HTML emails
+function wrapTextAsHtml(text = "") {
+  const safe = (text || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  const withBr = safe.replace(/\r?\n/g, "<br/>")
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5;">${withBr}</div>
+  `
+}
+
 // Build a plain-text version with catalog appended or placeholder-replaced
 async function buildEmailTextWithCatalog(template) {
   const ids = template.selectedCatalogItemIds || []
@@ -232,10 +296,12 @@ async function buildEmailTextWithCatalog(template) {
   lines.push("Catalog:")
   items.forEach((it, idx) => {
     const price = typeof it.price === 'number' ? `₹${it.price.toFixed(2)}` : ''
+    const firstFile = (it.files && it.files[0]) || null
+    const fileUrl = firstFile?.url || ''
     const parts = [
       `${idx + 1}. ${it.title || 'Item'}`,
       price ? `Price: ${price}` : null,
-      it.url ? `Link: ${it.url}` : null,
+      (it.url || fileUrl) ? `Link: ${it.url || fileUrl}` : null,
     ].filter(Boolean)
     lines.push(parts.join(" | "))
   })
@@ -249,15 +315,22 @@ async function buildEmailTextWithCatalog(template) {
 
 async function buildEmailHtmlWithCatalog(template) {
   const ids = template.selectedCatalogItemIds || []
-  if (!ids.length) return template.htmlContent
+  const placeholder = "{{CATALOG_BLOCK}}"
+  // Respect text-only preference when htmlContent is absent
+  if (template.forceTextOnly && !template.htmlContent) {
+    return "" // send as text-only
+  }
+  const baseHtml = (template.htmlContent && template.htmlContent.trim())
+    ? template.htmlContent
+    : wrapTextAsHtml(template.textContent || "")
+  if (!ids.length) return baseHtml
   const items = await CatalogItem.find({ _id: { $in: ids } }).lean()
   const block = renderCatalogHTML(items, template.catalogLayout || "grid2", !!template.showPrices)
-  const placeholder = "{{CATALOG_BLOCK}}"
-  if (template.htmlContent && template.htmlContent.includes(placeholder)) {
-    return template.htmlContent.replace(placeholder, block)
+  if (baseHtml && baseHtml.includes(placeholder)) {
+    return baseHtml.replace(placeholder, block)
   }
   // Append if placeholder not present
-  return (template.htmlContent || "") + block
+  return baseHtml + block
 }
 
 // Campaign Management
@@ -958,6 +1031,9 @@ async function startCampaign(campaignId, userId) {
     await campaign.save()
     logger.info(`Campaign status updated to sending: ${campaignId}`)
 
+    // Resolve per-user SMTP config once for this campaign/user
+    const cfg = await resolveEmailConfigByUserId(userId)
+
     // Send initial emails
     const emailPromises = uniqueContacts.map(async (contact) => {
       try {
@@ -965,9 +1041,9 @@ async function startCampaign(campaignId, userId) {
         
         const computedHtml = await buildEmailHtmlWithCatalog(campaign.template)
         const computedText = await buildEmailTextWithCatalog(campaign.template)
-        // Replace variables in final bodies
-        const finalHtml = replaceVariables(computedHtml, contact, emailService?.emailConfig?.user || '')
-        const finalText = replaceVariables(computedText, contact, emailService?.emailConfig?.user || '')
+        // Replace variables in final bodies using sender address from cfg
+        const finalHtml = replaceVariables(computedHtml, contact, cfg.user || '')
+        const finalText = replaceVariables(computedText, contact, cfg.user || '')
         const email = new Email({
           campaignId: campaign._id,
           contactId: contact._id,
@@ -987,8 +1063,8 @@ async function startCampaign(campaignId, userId) {
           to: contact.email,
           subject: email.subject,
           text: email.textContent,
-          html: email.htmlContent
-        })
+          html: email.htmlContent || undefined,
+        }, cfg)
 
         // Update email status
         email.status = "sent"

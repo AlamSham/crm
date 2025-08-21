@@ -14,16 +14,21 @@ import type {
   PaginationInfo,
 } from "../types/follow-up"
 
-// Helper to produce auth headers for both Admin and Merch
+// Helper to produce auth headers for Admin area (prefer Admin context)
 const getAuthHeaders = (): Record<string, string> => {
   if (typeof window === "undefined") return {}
-  // Prefer merch context if present
+  const adminId = localStorage.getItem("adminId") || ""
+  const impersonateUserId = localStorage.getItem("impersonateUserId") || ""
+  // If admin is present and admin selected a specific merchant user, send both
+  if (adminId && impersonateUserId) {
+    return { "x-admin-id": adminId, "x-user-id": impersonateUserId, "x-role": "merch" }
+  }
+  // Normal admin-only
+  if (adminId) return { "x-admin-id": adminId, "x-role": "admin" }
+  // Fallback to merch if admin not present
   const { user } = useMerchAuthStore.getState?.() || ({} as any)
   const userId = user?.id || ""
-  if (userId) return { "x-user-id": userId, "x-role": "merch" }
-  // Fallback to admin
-  const adminId = localStorage.getItem("adminId") || ""
-  return adminId ? { "x-admin-id": adminId } : {}
+  return userId ? { "x-user-id": userId, "x-role": "merch" } : {}
 }
 
 // Use public follow-up base (works for both admin and merch)

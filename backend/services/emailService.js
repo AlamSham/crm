@@ -4,6 +4,63 @@ const { simpleParser } = require("mailparser")
 const emailConfig = require("../config/emailConfig")
 const logger = require("../utils/logger")
 
+// Merge override config (from user/admin settings) with fallback env config
+function getEffectiveConfig(override = {}) {
+  const cfg = {
+    user: override.user || emailConfig.user,
+    password: override.password || emailConfig.password,
+    imapHost: override.imapHost || emailConfig.imapHost || "imap.gmail.com",
+    imapPort: override.imapPort || emailConfig.imapPort || 993,
+    smtpHost: override.smtpHost || emailConfig.smtpHost || "smtp.gmail.com",
+    smtpPort: override.smtpPort || emailConfig.smtpPort || 465,
+    fromName: override.fromName,
+  }
+  return cfg
+}
+
+// Default pooled transporter for env config
+let defaultTransporter = null
+function ensureDefaultTransporter() {
+  if (defaultTransporter) return defaultTransporter
+  defaultTransporter = nodemailer.createTransport({
+    host: emailConfig.smtpHost || "smtp.gmail.com",
+    port: emailConfig.smtpPort || 465,
+    secure: (emailConfig.smtpPort || 465) === 465,
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+    auth: {
+      user: emailConfig.user,
+      pass: emailConfig.password,
+    },
+    tls: { rejectUnauthorized: false },
+  })
+  return defaultTransporter
+}
+
+// Build transporter for a specific config; reuse default when same as env
+function getTransporter(effectiveCfg) {
+  const sameAsEnv =
+    effectiveCfg.user === emailConfig.user &&
+    effectiveCfg.password === emailConfig.password &&
+    (effectiveCfg.smtpHost || "smtp.gmail.com") === (emailConfig.smtpHost || "smtp.gmail.com") &&
+    (effectiveCfg.smtpPort || 465) === (emailConfig.smtpPort || 465)
+
+  if (sameAsEnv) return ensureDefaultTransporter()
+
+  return nodemailer.createTransport({
+    host: effectiveCfg.smtpHost || "smtp.gmail.com",
+    port: effectiveCfg.smtpPort || 465,
+    secure: (effectiveCfg.smtpPort || 465) === 465,
+    pool: false,
+    auth: {
+      user: effectiveCfg.user,
+      pass: effectiveCfg.password,
+    },
+    tls: { rejectUnauthorized: false },
+  })
+}
+
 // Mock email data for development
 const mockEmails = [
   {
@@ -140,10 +197,11 @@ function parseEmailBody(rawBody) {
   })
 }
 
-async function fetchSpamMails({ page = 1, limit = 10, search = "" }) {
+async function fetchSpamMails({ page = 1, limit = 10, search = "" }, configOverride = {}) {
   return new Promise((resolve, reject) => {
+    const cfg = getEffectiveConfig(configOverride)
     // Check if email config is available
-    if (!emailConfig.user || !emailConfig.password) {
+    if (!cfg.user || !cfg.password) {
       console.log("Email config not available, using mock data for spam mails")
       let mockData = [...mockEmails]
 
@@ -170,12 +228,14 @@ async function fetchSpamMails({ page = 1, limit = 10, search = "" }) {
     }
 
     const imapConnection = new Imap({
-      user: emailConfig.user,
-      password: emailConfig.password,
-      host: emailConfig.imapHost,
-      port: emailConfig.imapPort,
+      user: cfg.user,
+      password: cfg.password,
+      host: cfg.imapHost,
+      port: cfg.imapPort,
       tls: true,
       tlsOptions: { rejectUnauthorized: false },
+      connTimeout: 10000,
+      authTimeout: 10000,
     })
 
     imapConnection.once("ready", async () => {
@@ -222,20 +282,40 @@ async function fetchSpamMails({ page = 1, limit = 10, search = "" }) {
       }
     })
 
-    imapConnection.once("error", (err) => reject(err))
+    imapConnection.once("error", (err) => {
+      console.error('IMAP connection error', {
+        emailUser: cfg.user,
+        host: cfg.imapHost,
+        port: cfg.imapPort,
+        error: err.message
+      })
+      reject(err)
+    })
     imapConnection.connect()
   })
 }
 
-function fetchEmailsFromFolder(imapConnection, folder, start, end) {
+function fetchEmailsFromFolder(imapConnection, folder, opts = {}) {
   return new Promise((resolve, reject) => {
     const emails = []
+    const t0 = Date.now()
 
     imapConnection.openBox(folder, false, (err, box) => {
-      if (err) return reject(err)
-      if (box.messages.total === 0) return resolve([])
+      if (err) {
+        console.error('IMAP openBox error', { folder, error: err.message })
+        return reject(err)
+      }
+      if (box.messages.total === 0) {
+        console.log('IMAP folder empty', { folder })
+        return resolve([])
+      }
 
-      const fetch = imapConnection.seq.fetch(`${start}:${end}`, {
+      const total = box.messages.total
+      const FETCH_LIMIT = Math.max(1, Math.min(100, Number(opts.fetchLimit) || 100))
+      const rangeStart = Math.max(1, total - FETCH_LIMIT + 1)
+      const rangeEnd = total
+      console.log('IMAP fetching range', { folder, total, rangeStart, rangeEnd, fetchLimit: FETCH_LIMIT })
+      const fetch = imapConnection.seq.fetch(`${rangeStart}:${rangeEnd}`, {
         bodies: "",
         struct: true,
       })
@@ -274,7 +354,10 @@ function fetchEmailsFromFolder(imapConnection, folder, start, end) {
         })
       })
 
-      fetch.once("error", (err) => reject(err))
+      fetch.once("error", (err) => {
+        console.error('IMAP fetch error', { folder, error: err.message })
+        reject(err)
+      })
 
       fetch.once("end", async () => {
         // Parse all emails
@@ -349,6 +432,8 @@ function fetchEmailsFromFolder(imapConnection, folder, start, end) {
           return dateB - dateA
         })
 
+        const dt = Date.now() - t0
+        console.log('IMAP fetch complete', { folder, fetched: emails.length, parsed: parsedEmails.length, ms: dt })
         resolve(parsedEmails)
       })
     })
@@ -375,10 +460,11 @@ function groupEmailsByThread(emails) {
   return Array.from(threadMap.values())
 }
 
-async function fetchAllMails({ page = 1, limit = 10, search = "" }) {
+async function fetchAllMails({ page = 1, limit = 10, search = "" }, configOverride = {}) {
   return new Promise((resolve, reject) => {
+    const cfg = getEffectiveConfig(configOverride)
     // Check if email config is available
-    if (!emailConfig.user || !emailConfig.password) {
+    if (!cfg.user || !cfg.password) {
       console.log("Email config not available, using mock data")
       let mockData = [...mockEmails]
       
@@ -405,21 +491,29 @@ async function fetchAllMails({ page = 1, limit = 10, search = "" }) {
     }
 
     const imapConnection = new Imap({
-      user: emailConfig.user,
-      password: emailConfig.password,
-      host: emailConfig.imapHost,
-      port: emailConfig.imapPort,
+      user: cfg.user,
+      password: cfg.password,
+      host: cfg.imapHost,
+      port: cfg.imapPort,
       tls: true,
       tlsOptions: { rejectUnauthorized: false },
     })
 
     let allEmails = []
+    // Debug: IMAP connect start
+    console.log('IMAP connect start', {
+      emailUser: cfg.user,
+      host: cfg.imapHost,
+      port: cfg.imapPort,
+      folders: ['INBOX', '[Gmail]/Sent Mail']
+    })
 
     imapConnection.once("ready", async () => {
       try {
         // Fetch from both INBOX and [Gmail]/Sent Mail
-        const inboxEmails = await fetchEmailsFromFolder(imapConnection, "INBOX", 1, "*")
-        const sentEmails = await fetchEmailsFromFolder(imapConnection, "[Gmail]/Sent Mail", 1, "*")
+        const fetchLimit = Math.min(100, Math.max(10, (page || 1) * (limit || 10)))
+        const inboxEmails = await fetchEmailsFromFolder(imapConnection, "INBOX", { fetchLimit })
+        const sentEmails = await fetchEmailsFromFolder(imapConnection, "[Gmail]/Sent Mail", { fetchLimit })
 
         allEmails = [...inboxEmails, ...sentEmails]
 
@@ -493,10 +587,11 @@ async function fetchAllMails({ page = 1, limit = 10, search = "" }) {
   })
 }
 
-async function fetchSentMails({ page = 1, limit = 10, search = "" }) {
+async function fetchSentMails({ page = 1, limit = 10, search = "" }, configOverride = {}) {
   return new Promise((resolve, reject) => {
+    const cfg = getEffectiveConfig(configOverride)
     // Check if email config is available
-    if (!emailConfig.user || !emailConfig.password) {
+    if (!cfg.user || !cfg.password) {
       console.log("Email config not available, using mock data for sent mails")
       let mockData = [...mockEmails]
       
@@ -523,10 +618,10 @@ async function fetchSentMails({ page = 1, limit = 10, search = "" }) {
     }
 
     const imapConnection = new Imap({
-      user: emailConfig.user,
-      password: emailConfig.password,
-      host: emailConfig.imapHost,
-      port: emailConfig.imapPort,
+      user: cfg.user,
+      password: cfg.password,
+      host: cfg.imapHost,
+      port: cfg.imapPort,
       tls: true,
       tlsOptions: { rejectUnauthorized: false },
     })
@@ -535,8 +630,9 @@ async function fetchSentMails({ page = 1, limit = 10, search = "" }) {
 
     imapConnection.once("ready", async () => {
       try {
-        const sentEmails = await fetchEmailsFromFolder(imapConnection, "[Gmail]/Sent Mail", 1, "*")
-        const inboxEmails = await fetchEmailsFromFolder(imapConnection, "INBOX", 1, "*")
+        const fetchLimit = Math.min(100, Math.max(10, (page || 1) * (limit || 10)))
+        const sentEmails = await fetchEmailsFromFolder(imapConnection, "[Gmail]/Sent Mail", { fetchLimit })
+        const inboxEmails = await fetchEmailsFromFolder(imapConnection, "INBOX", { fetchLimit })
 
         const sentThreadIds = new Set(sentEmails.map((e) => e.threadId).filter(Boolean))
         allEmails = [...sentEmails, ...inboxEmails.filter((e) => e.threadId && sentThreadIds.has(e.threadId))]
@@ -585,10 +681,11 @@ async function fetchSentMails({ page = 1, limit = 10, search = "" }) {
   })
 }
 
-async function fetchReceivedMails({ page = 1, limit = 10, search = "" }) {
+async function fetchReceivedMails({ page = 1, limit = 10, search = "" }, configOverride = {}) {
   return new Promise((resolve, reject) => {
+    const cfg = getEffectiveConfig(configOverride)
     // Check if email config is available
-    if (!emailConfig.user || !emailConfig.password) {
+    if (!cfg.user || !cfg.password) {
       console.log("Email config not available, using mock data for received mails")
       let mockData = [...mockEmails]
       
@@ -615,10 +712,10 @@ async function fetchReceivedMails({ page = 1, limit = 10, search = "" }) {
     }
 
     const imapConnection = new Imap({
-      user: emailConfig.user,
-      password: emailConfig.password,
-      host: emailConfig.imapHost,
-      port: emailConfig.imapPort,
+      user: cfg.user,
+      password: cfg.password,
+      host: cfg.imapHost,
+      port: cfg.imapPort,
       tls: true,
       tlsOptions: { rejectUnauthorized: false },
     })
@@ -627,8 +724,9 @@ async function fetchReceivedMails({ page = 1, limit = 10, search = "" }) {
 
     imapConnection.once("ready", async () => {
       try {
-        const inboxEmails = await fetchEmailsFromFolder(imapConnection, "INBOX", 1, "*")
-        const sentEmails = await fetchEmailsFromFolder(imapConnection, "[Gmail]/Sent Mail", 1, "*")
+        const fetchLimit = Math.min(100, Math.max(10, (page || 1) * (limit || 10)))
+        const inboxEmails = await fetchEmailsFromFolder(imapConnection, "INBOX", { fetchLimit })
+        const sentEmails = await fetchEmailsFromFolder(imapConnection, "[Gmail]/Sent Mail", { fetchLimit })
 
         const receivedThreadIds = new Set(inboxEmails.map((e) => e.threadId).filter(Boolean))
         allEmails = [...inboxEmails, ...sentEmails.filter((e) => e.threadId && receivedThreadIds.has(e.threadId))]
@@ -677,20 +775,8 @@ async function fetchReceivedMails({ page = 1, limit = 10, search = "" }) {
   })
 }
 
-// Use a pooled transport to improve throughput and reuse connections
-const transporter = nodemailer.createTransport({
-  host: emailConfig.smtpHost || "smtp.gmail.com",
-  port: emailConfig.smtpPort || 465,
-  secure: (emailConfig.smtpPort || 465) === 465, // true for 465, false for 587
-  pool: true,
-  maxConnections: 5,
-  maxMessages: 100,
-  auth: {
-    user: emailConfig.user,
-    pass: emailConfig.password,
-  },
-  tls: { rejectUnauthorized: false },
-})
+// Initialize default transporter lazily
+const transporter = ensureDefaultTransporter()
 
 // Verify transporter on startup for better diagnostics
 try {
@@ -713,9 +799,11 @@ try {
   logger.error("Error verifying SMTP transporter:", { error: e.message })
 }
 
-async function sendEmail({ to, cc, bcc, subject, text, html, attachments }) {
+async function sendEmail({ to, cc, bcc, subject, text, html, attachments }, configOverride = {}) {
+  let cfg
   try {
-    if (!emailConfig.user || !emailConfig.password) {
+    cfg = getEffectiveConfig(configOverride)
+    if (!cfg.user || !cfg.password) {
       throw new Error('Email configuration is missing. Please check emailConfig.user and emailConfig.password');
     }
 
@@ -723,9 +811,10 @@ async function sendEmail({ to, cc, bcc, subject, text, html, attachments }) {
       throw new Error('Recipient email address is required');
     }
 
+    const fromAddr = cfg.fromName ? `${cfg.fromName} <${cfg.user}>` : cfg.user
     const mailOptions = {
-      from: emailConfig.user,
-      replyTo: emailConfig.user,
+      from: fromAddr,
+      replyTo: cfg.user,
       to,
       cc: cc || "",
       bcc: bcc || "",
@@ -741,7 +830,8 @@ async function sendEmail({ to, cc, bcc, subject, text, html, attachments }) {
       from: mailOptions.from
     });
 
-    const info = await transporter.sendMail(mailOptions)
+    const tx = getTransporter(cfg)
+    const info = await tx.sendMail(mailOptions)
     console.log('Email sent successfully:', info.messageId);
     logger.info("SMTP send result", {
       messageId: info.messageId,
@@ -751,22 +841,25 @@ async function sendEmail({ to, cc, bcc, subject, text, html, attachments }) {
     })
     return info
   } catch (error) {
+    const safe = cfg || {}
     console.error('Error sending email:', {
       error: error.message,
       to,
       subject,
       emailConfig: {
-        user: emailConfig.user ? 'Set' : 'Not set',
-        password: emailConfig.password ? 'Set' : 'Not set'
+        user: safe.user ? 'Set' : 'Not set',
+        password: safe.password ? 'Set' : 'Not set'
       }
     });
     throw error;
   }
 }
 
-async function replyToEmail({ to, cc, bcc, subject, text, html, messageId, references, attachments }) {
+async function replyToEmail({ to, cc, bcc, subject, text, html, messageId, references, attachments }, configOverride = {}) {
+  const cfg = getEffectiveConfig(configOverride)
+  const fromAddr = cfg.fromName ? `${cfg.fromName} <${cfg.user}>` : cfg.user
   const mailOptions = {
-    from: emailConfig.user,
+    from: fromAddr,
     to,
     cc: cc || "",
     bcc: bcc || "",
@@ -778,7 +871,8 @@ async function replyToEmail({ to, cc, bcc, subject, text, html, messageId, refer
     attachments: attachments || [],
   }
 
-  const info = await transporter.sendMail(mailOptions)
+  const tx = getTransporter(cfg)
+  const info = await tx.sendMail(mailOptions)
   return info
 }
 

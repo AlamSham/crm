@@ -1,9 +1,28 @@
 const catalogService = require('../services/catalogService')
 
-// Helper to get user and role from auth (adjust based on your auth middleware)
+// Helper to get user and role from auth (impersonation-aware)
 function getAuth(req) {
-  const userId = (req.user && req.user._id) || req.userId || req.headers['x-admin-id'] || req.query.userId
-  const role = req.role || req.headers['x-role'] || req.query.role || 'admin'
+  const adminHeaderId = req.headers['x-admin-id']
+  const userHeaderId = req.headers['x-user-id']
+  const bodyId = req.body?.adminId || req.body?.userId
+  const queryId = req.query?.userId
+  // Prefer explicit header role (impersonation) over middleware-injected req.role
+  const explicitRole = req.headers['x-role'] || req.role || req.query?.role
+
+  let role = explicitRole
+  let userId = null
+
+  if (role === 'merch') {
+    // Impersonation or merch: prefer x-user-id
+    userId = userHeaderId || req.userId || bodyId || queryId || null
+  } else if (role === 'admin') {
+    // Admin-only context
+    userId = adminHeaderId || req.userId || bodyId || queryId || null
+  } else {
+    // No explicit role: infer
+    userId = userHeaderId || adminHeaderId || req.userId || bodyId || queryId || null
+    role = adminHeaderId && !userHeaderId ? 'admin' : (userId ? 'merch' : null)
+  }
   return { userId, role }
 }
 
@@ -51,12 +70,18 @@ async function deleteCategory(req, res) {
 // Items
 async function createItem(req, res) {
   try {
-    const { userId, role } = getAuth(req)
+    const { userId: authUserId, role } = getAuth(req)
+    const actualUserId = req.userId || authUserId
+    // Resolve 'self' from client to actual req userId
+    const body = { ...req.body }
+    if (body.userId === 'self' || !body.userId) body.userId = actualUserId
+    if (body.createdBy === 'self' || !body.createdBy) body.createdBy = actualUserId
+
     const payload = {
-      ...req.body,
-      createdBy: userId,
+      ...body,
+      createdBy: body.createdBy,
       createdByRole: role,
-      userId, // keep ownership scope
+      userId: body.userId, // keep ownership scope
     }
     // For merch-created items, make them active immediately (no approval step)
     if (role === 'merch') {
@@ -66,11 +91,11 @@ async function createItem(req, res) {
     } else if (role === 'admin') {
       payload.status = req.body.status || 'active'
       if (payload.status === 'active') {
-        payload.approvedBy = userId
+        payload.approvedBy = actualUserId
         payload.approvedAt = new Date()
       }
     }
-    const item = await catalogService.createItem(userId, payload)
+    const item = await catalogService.createItem(actualUserId, payload)
     res.json({ success: true, data: item })
   } catch (e) {
     res.status(400).json({ success: false, message: e.message })
@@ -81,9 +106,14 @@ async function listItems(req, res) {
   try {
     const { userId, role } = getAuth(req)
     const { page, limit, search, categoryId, status } = req.query
-    const result = role === 'admin'
-      ? await catalogService.getAllItems({ page, limit, search, categoryId, status })
-      : await catalogService.getItems(userId, { page, limit, search, categoryId, status })
+    // Strict guard: if x-user-id (or resolved userId) exists, always scope by user
+    const headerUserId = req.headers['x-user-id']
+    const effectiveUserId = (headerUserId === 'self') ? userId : (headerUserId || userId)
+    const isUserScoped = !!effectiveUserId
+
+    const result = isUserScoped
+      ? await catalogService.getItems(effectiveUserId, { page, limit, search, categoryId, status })
+      : await catalogService.getAllItems({ page, limit, search, categoryId, status })
     res.json({ success: true, ...result })
   } catch (e) {
     res.status(400).json({ success: false, message: e.message })

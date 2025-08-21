@@ -8,6 +8,7 @@ import {
   FiLayers
 } from 'react-icons/fi';
 import axiosInstance from '@/lib/axiosInstance'
+import AdminEmailSettingsModal from './AdminEmailSettingsModal'
 import useAuthStore from '@/store/useAuthStore'
 
 const AdminLayout = () => {
@@ -15,6 +16,7 @@ const AdminLayout = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [emailSettingsOpen, setEmailSettingsOpen] = useState(false);
   const [admin, setAdmin] = useState<{ name?: string; email?: string; role?: string; lastLogin?: string } | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -230,7 +232,15 @@ const AdminLayout = () => {
                       Profile
                     </div>
                   </button>
-                  {/* Settings option removed per requirement */}
+                  <button
+                    onClick={() => { setEmailSettingsOpen(true); setUserDropdownOpen(false) }}
+                    className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center">
+                      <FiSettings className="mr-2" size={16} />
+                      Email Settings
+                    </div>
+                  </button>
                   <div className="border-t border-gray-200 my-1"></div>
                   <button
                     onClick={handleLogout}
@@ -285,6 +295,11 @@ const AdminLayout = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Email Settings Modal */}
+      {emailSettingsOpen && (
+        <AdminEmailSettingsModal open={emailSettingsOpen} onClose={() => setEmailSettingsOpen(false)} />
       )}
     </>
   );
