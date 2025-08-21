@@ -15,4 +15,7 @@ router.put('/:id', ctrl.updateEnquiry);
 // Delete
 router.delete('/:id', ctrl.deleteEnquiry);
 
+// Excel upload (multipart/form-data, field name: file)
+router.post('/upload-excel', ctrl.excelUploadMiddleware, ctrl.uploadEnquiriesExcel);
+
 module.exports = router;

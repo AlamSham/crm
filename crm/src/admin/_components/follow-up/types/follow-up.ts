@@ -22,6 +22,7 @@ export interface Campaign {
     steps?: Array<{
       delayHours: number
       templateId: string
+      message?: string
       conditions?: {
         requireOpen?: boolean
         requireClick?: boolean
@@ -162,6 +163,7 @@ export interface CreateCampaignData {
     steps?: Array<{
       delayHours: number
       templateId: string
+      message?: string
       conditions?: {
         requireOpen?: boolean
         requireClick?: boolean
@@ -206,6 +208,7 @@ export interface FollowUpSequence {
   steps: Array<{
     delayHours: number
     templateId: string
+    message?: string
   }>
 }
 

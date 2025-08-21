@@ -58,6 +58,8 @@ const campaignSchema = new mongoose.Schema(
             requireClick: { type: Boolean },
             requireNoReply: { type: Boolean },
           },
+          // Optional per-step custom message to append with template when sending
+          message: { type: String },
         },
       ],
     },

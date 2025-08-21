@@ -26,6 +26,8 @@ const emailSchema = new mongoose.Schema(
     subject: String,
     htmlContent: String,
     textContent: String,
+    // Optional per-email custom message (used for sequence step messages)
+    customMessage: String,
     status: {
       type: String,
       enum: ["queued", "sending", "sent", "delivered", "bounced", "failed"],

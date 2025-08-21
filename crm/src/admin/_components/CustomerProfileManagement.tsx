@@ -214,7 +214,20 @@ const CustomerProfileManagement = () => {
             </div>
           ),
         }}
-        pagination={{ current: page, pageSize: limit, total, onChange: (p, l) => { setPage(p); setLimit(l) } }}
+        pagination={{
+          current: page,
+          pageSize: limit,
+          total,
+          onChange: (p, l) => {
+            if (l !== limit) {
+              // Changing page size: store's setLimit already resets page to 1
+              setLimit(l)
+            } else {
+              // Only page number changed
+              setPage(p)
+            }
+          },
+        }}
       />
 
       {/* Mobile FAB for quick create */}

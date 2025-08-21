@@ -4,8 +4,7 @@ import { SearchOutlined, MailOutlined, EyeOutlined, EditOutlined, DeleteOutlined
 import type { ColumnsType } from 'antd/es/table'
 import { useEnquiries } from '@/admin/_components/hooks/useEnquiries'
 import type { CustomerEnquiry } from '@/admin/_components/types/enquiry'
-import ComposeEmail from '@/admin/_components/email/compose-email'
-import { EmailProvider } from '@/admin/_components/email/gmail-layout'
+// Removed email compose feature
 
 const CustomerEnquiryManagement = () => {
   const {
@@ -21,10 +20,10 @@ const CustomerEnquiryManagement = () => {
   const [form] = Form.useForm()
   
   const [editing, setEditing] = useState<CustomerEnquiry | null>(null)
-  // Email compose state
-  const [composeOpen, setComposeOpen] = useState(false)
-  const [composePrefill, setComposePrefill] = useState<{ to?: string; subject?: string; text?: string } | undefined>(undefined)
+  // Removed email compose state
   const [bulkUploading, setBulkUploading] = useState(false)
+  // Local loading message key for AntD message API
+  const [msgKey] = useState<string>('enquiry-bulk-upload')
 
   useEffect(() => {
     fetch().catch(() => message.error('Failed to load enquiries'))
@@ -142,7 +141,7 @@ const CustomerEnquiryManagement = () => {
       fixed: 'right',
       render: (_, r) => {
         const items = [
-          { key: 'respond', icon: <MailOutlined />, label: 'Respond' },
+          // Respond action removed per requirement
           { key: 'view', icon: <EyeOutlined />, label: 'View' },
           { key: 'edit', icon: <EditOutlined />, label: 'Edit' },
           {
@@ -181,20 +180,7 @@ const CustomerEnquiryManagement = () => {
             // Popconfirm inside label will handle the action
             return
           }
-          if (key === 'respond') {
-            if (!r.email) {
-              message.info('No email')
-              return
-            }
-            const subj = r.products && r.products.length
-              ? `Regarding your enquiry about ${r.products[0]}`
-              : `Regarding your enquiry`
-            const body = `Hi ${r.name || ''},\n\n` +
-              `Thanks for your enquiry${r.products?.length ? ` about ${r.products.join(', ')}` : ''}.` +
-              `\nPlease let us know a suitable time to connect.`
-            setComposePrefill({ to: r.email, subject: subj, text: body })
-            setComposeOpen(true)
-          }
+          // Respond action removed
           if (key === 'view') {
             setViewed(r); setViewOpen(true)
           }
@@ -237,42 +223,24 @@ const CustomerEnquiryManagement = () => {
             onChange={(e)=> setSearch(e.target.value)}
           />
           <Upload
-            accept=".xlsx,.xls"
+            accept=".xlsx,.xls,.csv"
             showUploadList={false}
             beforeUpload={async (file) => {
               try {
                 setBulkUploading(true)
-                const { default: XLSX } = await import('xlsx')
-                const data = await file.arrayBuffer()
-                const wb = XLSX.read(data, { type: 'array' })
-                const ws = wb.Sheets[wb.SheetNames[0]]
-                const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
-
-                // Expect headers: name, email, phone, products, priority, status, notes, source
-                let success = 0, failed = 0
-                for (const row of rows) {
-                  try {
-                    const payload = {
-                      name: row.name || row.Name || '',
-                      email: row.email || row.Email || undefined,
-                      phone: row.phone || row.Phone || undefined,
-                      products: typeof row.products === 'string' ? row.products.split(',').map((s:string)=>s.trim()).filter(Boolean) : (row.products || row.Products || []),
-                      priority: row.priority || row.Priority || 'Medium',
-                      status: row.status || row.Status || 'New',
-                      notes: row.notes || row.Notes || '',
-                      source: row.source || row.Source || '',
-                    }
-                    if (!payload.name) { failed++; continue }
-                    const created = await (await import('@/admin/_components/services/enquiryService')).enquiryService.create(payload)
-                    if (created?._id) success++; else failed++
-                  } catch {
-                    failed++
-                  }
-                }
+                message.loading({ content: 'Uploading file...', key: msgKey, duration: 0 })
+                const svc = (await import('@/admin/_components/services/enquiryService')).enquiryService
+                const res = await svc.uploadExcel(file as File)
                 await fetch()
-                Modal.info({ title: 'Bulk upload summary', content: `Success: ${success}, Failed: ${failed}` })
+                const inserted = (res as any)?.inserted ?? (res as any)?.result?.nUpserted ?? 0
+                Modal.info({ title: 'Bulk upload summary', content: `Inserted: ${inserted}` })
+                message.success({ content: 'Upload finished', key: msgKey })
               } catch (e) {
-                message.error('Failed to process file')
+                console.error('[Enquiry Bulk Upload] upload failed', e)
+                const status = (e as any)?.response?.status
+                const data = (e as any)?.response?.data
+                const msg = data?.message || `Failed to upload${status ? ` (HTTP ${status})` : ''}`
+                message.error({ content: msg, key: msgKey })
               } finally {
                 setBulkUploading(false)
               }
@@ -296,6 +264,8 @@ const CustomerEnquiryManagement = () => {
             All
           </Button>
           <Button style={{ borderRadius: '6px', borderColor: '#d9d9d9' }} onClick={()=> setPriority('High')}>High Priority</Button>
+          <Button style={{ borderRadius: '6px', borderColor: '#d9d9d9' }} onClick={()=> setPriority('Medium')}>Medium Priority</Button>
+          <Button style={{ borderRadius: '6px', borderColor: '#d9d9d9' }} onClick={()=> setPriority('Low')}>Low Priority</Button>
           <Button style={{ borderRadius: '6px', borderColor: '#d9d9d9' }} onClick={()=> setStatus('New')}>New</Button>
           <Button style={{ borderRadius: '6px', borderColor: '#d9d9d9' }} onClick={()=> setStatus('Responded')}>Responded</Button>
         </Space>
@@ -306,7 +276,18 @@ const CustomerEnquiryManagement = () => {
         bordered
         loading={loading}
         rowKey={(r)=> r._id}
-        pagination={{ current: page, pageSize: limit, total, onChange: (p,l)=>{ setPage(p); setLimit(l) } }}
+        pagination={{
+          current: page,
+          pageSize: limit,
+          total,
+          onChange: (p, l) => {
+            if (l !== limit) {
+              setLimit(l) // page size change resets to 1 in store
+            } else {
+              setPage(p) // only page number changed
+            }
+          },
+        }}
         style={{ borderRadius: '8px' }}
         size="middle"
         scroll={{ x: 960 }}
@@ -398,14 +379,7 @@ const CustomerEnquiryManagement = () => {
         )}
       </Drawer>
 
-      {/* In-app Email Composer */}
-      <EmailProvider>
-        <ComposeEmail
-          isOpen={composeOpen}
-          onClose={() => setComposeOpen(false)}
-          prefill={composePrefill}
-        />
-      </EmailProvider>
+      {/* Email composer removed */}
     </Card>
   );
 };

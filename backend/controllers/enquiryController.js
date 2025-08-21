@@ -1,4 +1,10 @@
 const CustomerEnquiry = require('../models/enquiry');
+const multer = require('multer');
+const XLSX = require('xlsx');
+
+// Multer memory storage for Excel upload
+const upload = multer({ storage: multer.memoryStorage() });
+exports.excelUploadMiddleware = upload.single('file');
 
 // List enquiries with pagination and filters
 exports.listEnquiries = async (req, res, next) => {
@@ -84,6 +90,55 @@ exports.deleteEnquiry = async (req, res, next) => {
     const deleted = await CustomerEnquiry.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: 'Enquiry not found' });
     res.json({ message: 'Enquiry deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+// Bulk upload enquiries from Excel/CSV
+exports.uploadEnquiriesExcel = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+    // Determine creator (User or Admin)
+    const creatorId = (req.user && req.user._id) || (req.admin && req.admin._id);
+    const creatorModel = req.user ? 'User' : req.admin ? 'Admin' : null;
+    if (!creatorId || !creatorModel) {
+      return res.status(401).json({ message: 'Unauthorized: missing creator identity' });
+    }
+
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+    // Expected headers: name, email, phone, products, priority, status, notes, source
+    const docs = [];
+    for (const r of rows) {
+      const name = r.name || r.Name || '';
+      const email = (r.email || r.Email || '').toString().toLowerCase();
+      const phone = r.phone || r.Phone || '';
+      const productsRaw = r.products || r.Products || '';
+      const products = Array.isArray(productsRaw)
+        ? productsRaw
+        : typeof productsRaw === 'string' && productsRaw.trim()
+        ? productsRaw.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+      const priority = r.priority || r.Priority || 'Medium';
+      const status = r.status || r.Status || 'New';
+      const notes = r.notes || r.Notes || '';
+      const source = r.source || r.Source || '';
+
+      if (!name) continue; // skip incomplete rows
+
+      docs.push({ name, email, phone, products, priority, status, notes, source, createdBy: creatorId, createdByModel: creatorModel });
+    }
+
+    if (!docs.length) return res.status(400).json({ message: 'No valid rows found in file' });
+
+    // Insert all docs (do not upsert by default for enquiries)
+    const result = await CustomerEnquiry.insertMany(docs, { ordered: false });
+    res.json({ message: 'Upload processed', inserted: result.length });
   } catch (err) {
     next(err);
   }

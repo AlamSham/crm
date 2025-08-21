@@ -132,8 +132,14 @@ async function processDueEmails() {
         const computedText = await buildEmailTextWithCatalog(template)
         // Resolve per-user email config using the email's userId
         const cfg = await resolveEmailConfigByUserId(email.userId || email.user)
-        const finalHtml = replaceVariables(computedHtml, contact, cfg.user || '')
-        const finalText = replaceVariables(computedText, contact, cfg.user || '')
+        let finalHtml = replaceVariables(computedHtml, contact, cfg.user || '')
+        let finalText = replaceVariables(computedText, contact, cfg.user || '')
+        // Append customMessage if present
+        if (email.customMessage) {
+          const appendHtml = `<div style=\"margin-top:12px; white-space:pre-wrap\">${email.customMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
+          finalHtml = (finalHtml || '') + appendHtml
+          finalText = (finalText || '') + "\n\n" + email.customMessage
+        }
 
         // update contents before sending
         email.htmlContent = finalHtml
@@ -1348,6 +1354,8 @@ async function setupSequenceFollowups(campaignId, userId) {
               subject: stepTemplate.subject || `Follow-up ${i + 1}: ${campaign.subject || stepTemplate.subject}`,
               htmlContent: stepTemplate.htmlContent,
               textContent: stepTemplate.textContent,
+              // Persist per-step message to append at send time
+              customMessage: step.message || undefined,
               status: "queued",
               scheduledAt: scheduledAt,
               followupNumber: i + 1
@@ -1465,6 +1473,8 @@ async function createFollowupSequence(campaign, contact, originalEmail, userId) 
           userId: userId,
           sequence: i + 1,
           scheduledAt: scheduledAt,
+          // store per-step message on followup
+          message: step.message || undefined,
           conditions: {
             requireOpen: step.conditions?.requireOpen ?? true,
             requireClick: step.conditions?.requireClick ?? false,
@@ -1539,8 +1549,14 @@ async function processScheduledFollowups() {
         // Build HTML/TEXT with catalog and variables
         const computedHtml = await buildEmailHtmlWithCatalog(followup.templateId)
         const computedText = await buildEmailTextWithCatalog(followup.templateId)
-        const finalHtml = replaceVariables(computedHtml, followup.contactId, emailService?.emailConfig?.user || '')
-        const finalText = replaceVariables(computedText, followup.contactId, emailService?.emailConfig?.user || '')
+        let finalHtml = replaceVariables(computedHtml, followup.contactId, emailService?.emailConfig?.user || '')
+        let finalText = replaceVariables(computedText, followup.contactId, emailService?.emailConfig?.user || '')
+        // Append per-followup message if present
+        if (followup.message) {
+          const appendHtml = `<div style=\"margin-top:12px; white-space:pre-wrap\">${followup.message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
+          finalHtml = (finalHtml || '') + appendHtml
+          finalText = (finalText || '') + "\n\n" + followup.message
+        }
 
         // Send followup email
         const email = new Email({

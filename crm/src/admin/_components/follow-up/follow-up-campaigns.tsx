@@ -453,6 +453,16 @@ export default function FollowUpCampaigns() {
                                   </div>
                                 </Col>
                               </Row>
+                              <Row>
+                                <Col span={24}>
+                                  <Form.Item
+                                    name={[field.name, 'message']}
+                                    label="Message (optional)"
+                                  >
+                                    <TextArea rows={3} placeholder="Add a custom message for this step (will be appended to the template)" />
+                                  </Form.Item>
+                                </Col>
+                              </Row>
                             </Card>
                           ))}
                           <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add()}>

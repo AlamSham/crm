@@ -157,6 +157,12 @@ exports.deleteCustomer = async (req, res) => {
 exports.uploadCustomersExcel = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    // Determine creator (User or Admin) for inserted docs
+    const creatorId = (req.user && req.user._id) || (req.admin && req.admin._id);
+    const creatorModel = req.user ? 'User' : req.admin ? 'Admin' : null;
+    if (!creatorId || !creatorModel) {
+      return res.status(401).json({ message: 'Unauthorized: missing creator identity' });
+    }
     const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
@@ -194,6 +200,8 @@ exports.uploadCustomersExcel = async (req, res) => {
             history: [
               { date: new Date(), action: 'Created', details: `Status: ${d.status || 'Warm'}` },
             ],
+            createdBy: creatorId,
+            createdByModel: creatorModel,
           },
         },
         upsert: true,

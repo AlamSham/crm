@@ -32,4 +32,16 @@ export const enquiryService = {
     const res = await client.delete<{ message: string }>(`/enquiries/${id}`)
     return res.data
   },
+  
+  // Bulk upload via Excel/CSV (admin endpoint)
+  async uploadExcel(file: File) {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await axiosInstance.post<{ message: string; inserted?: number; result?: any }>(
+      '/enquiries/upload-excel',
+      fd,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+    return res.data
+  },
 }

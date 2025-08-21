@@ -41,6 +41,8 @@ const followupSchema = new mongoose.Schema(
       enum: ["scheduled", "sent", "cancelled", "failed"],
       default: "scheduled",
     },
+    // Optional per-followup custom message (for explicit sequence steps)
+    message: { type: String },
     conditions: {
       requireOpen: { type: Boolean, default: false },
       requireClick: { type: Boolean, default: false },
