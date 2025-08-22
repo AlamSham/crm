@@ -35,9 +35,10 @@ export const enquiryService = {
   
   // Bulk upload via Excel/CSV (admin endpoint)
   async uploadExcel(file: File) {
+    const client = getClient()
     const fd = new FormData()
     fd.append('file', file)
-    const res = await axiosInstance.post<{ message: string; inserted?: number; result?: any }>(
+    const res = await client.post<{ message: string; inserted?: number; result?: any }>(
       '/enquiries/upload-excel',
       fd,
       { headers: { 'Content-Type': 'multipart/form-data' } }

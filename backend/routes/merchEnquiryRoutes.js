@@ -2,6 +2,8 @@ const express = require('express')
 const router = express.Router()
 const { verifyMerchAccessToken } = require('../middleware/merchAuthMiddleware')
 const CustomerEnquiry = require('../models/enquiry')
+const multer = require('multer')
+const XLSX = require('xlsx')
 
 // All routes require merch access token
 router.use(verifyMerchAccessToken)
@@ -97,3 +99,54 @@ router.delete('/:id', async (req, res, next) => {
 })
 
 module.exports = router
+
+// Excel upload for merch user (bulk insert scoped to owner)
+const upload = multer({ storage: multer.memoryStorage() })
+router.post('/upload-excel', upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' })
+
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+    const docs = []
+    for (const r of rows) {
+      const name = r.name || r.Name || ''
+      const email = (r.email || r.Email || '').toString().toLowerCase()
+      const phone = r.phone || r.Phone || ''
+      const productsRaw = r.products || r.Products || ''
+      const products = Array.isArray(productsRaw)
+        ? productsRaw
+        : typeof productsRaw === 'string' && productsRaw.trim()
+        ? productsRaw.split(',').map((s) => s.trim()).filter(Boolean)
+        : []
+      const priority = r.priority || r.Priority || 'Medium'
+      const status = r.status || r.Status || 'New'
+      const notes = r.notes || r.Notes || ''
+      const source = r.source || r.Source || ''
+
+      if (!name) continue
+
+      docs.push({
+        name,
+        email,
+        phone,
+        products,
+        priority,
+        status,
+        notes,
+        source,
+        createdBy: req.userId,
+        createdByModel: 'User',
+      })
+    }
+
+    if (!docs.length) return res.status(400).json({ message: 'No valid rows found in file' })
+
+    const result = await CustomerEnquiry.insertMany(docs, { ordered: false })
+    res.json({ message: 'Upload processed', inserted: result.length })
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to process upload', error: err.message })
+  }
+})

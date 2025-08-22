@@ -34,11 +34,125 @@ const LeadTable = () => {
   const [editing, setEditing] = useState<LeadDto | null>(null);
   const [form] = Form.useForm<LeadPayload & { dates?: [moment.Moment, moment.Moment] }>();
 
+  // Bulk upload state
+  const [bulkUploading, setBulkUploading] = useState(false)
+  const [bulkResult, setBulkResult] = useState<{ total: number; success: number; failed: number; errors: { row: number; error: string }[] } | null>(null)
+  const [bulkModalOpen, setBulkModalOpen] = useState(false)
+  const [fileInputKey, setFileInputKey] = useState(0) // reset file input
+
   const openCreate = () => {
     setEditing(null);
     form.resetFields();
     setIsModalOpen(true);
   };
+
+  // ----------------------
+  // CSV Bulk Upload Logic
+  // ----------------------
+  const normalizeStatus = (v: string): LeadPayload['status'] | null => {
+    const s = (v || '').trim().toLowerCase()
+    if (s === 'hot') return 'Hot'
+    if (s === 'cold') return 'Cold'
+    if (s === 'follow-up' || s === 'followup' || s === 'follow up') return 'Follow-up'
+    return null
+  }
+
+  const normalizePriority = (v: string): LeadPayload['priority'] | null => {
+    const p = (v || '').trim().toLowerCase()
+    if (p === 'high') return 'High'
+    if (p === 'medium' || p === 'med') return 'Medium'
+    if (p === 'low') return 'Low'
+    return null
+  }
+
+  const parseDate = (v: string | undefined) => {
+    if (!v) return undefined
+    const t = v.trim()
+    if (!t) return undefined
+    const m = moment(t)
+    return m.isValid() ? m.toISOString() : undefined
+  }
+
+  const parseCsv = (text: string) => {
+    // Very simple CSV parser for comma-separated values without complex quoting
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length)
+    if (lines.length === 0) return { headers: [] as string[], rows: [] as string[][] }
+    const headerLine = lines[0]
+    const headers = headerLine.split(',').map(h => h.trim().toLowerCase())
+    const rows = lines.slice(1).map((line) => line.split(',').map(c => c.trim()))
+    return { headers, rows }
+  }
+
+  const handleBulkFile = async (file: File) => {
+    setBulkUploading(true)
+    setBulkResult(null)
+    try {
+      const text = await file.text()
+      const { headers, rows } = parseCsv(text)
+      const required = ['customer','status','priority','lastcontact','nextaction','notes']
+      const hasAll = required.every(h => headers.includes(h))
+      if (!hasAll) {
+        message.error('CSV headers must be: customer,status,priority,lastContact,nextAction,notes')
+        setBulkUploading(false)
+        return
+      }
+
+      const hIndex: Record<string, number> = {}
+      headers.forEach((h, i) => { hIndex[h] = i })
+
+      let success = 0
+      const errors: { row: number; error: string }[] = []
+
+      // Process sequentially to keep it simple and avoid rate limits
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i]
+        const customer = r[hIndex['customer']] || ''
+        const statusRaw = r[hIndex['status']] || ''
+        const priorityRaw = r[hIndex['priority']] || ''
+        const lastContactRaw = r[hIndex['lastcontact']] || ''
+        const nextActionRaw = r[hIndex['nextaction']] || ''
+        const notes = r[hIndex['notes']] || ''
+
+        if (!customer) {
+          errors.push({ row: i + 2, error: 'Customer is required' })
+          continue
+        }
+        const status = normalizeStatus(statusRaw)
+        if (!status) { errors.push({ row: i + 2, error: `Invalid status: ${statusRaw}` }); continue }
+        const priority = normalizePriority(priorityRaw)
+        if (!priority) { errors.push({ row: i + 2, error: `Invalid priority: ${priorityRaw}` }); continue }
+
+        const payload: LeadPayload = {
+          customer,
+          status,
+          priority,
+          notes,
+          lastContact: parseDate(lastContactRaw) ?? undefined,
+          nextAction: parseDate(nextActionRaw) ?? undefined,
+        }
+        try {
+          await leadApi.create(payload)
+          success += 1
+        } catch (e: any) {
+          const msg = e?.response?.data?.message || e?.message || 'Create failed'
+          errors.push({ row: i + 2, error: msg })
+        }
+      }
+
+      const result = { total: rows.length, success, failed: rows.length - success, errors }
+      setBulkResult(result)
+      setBulkModalOpen(true)
+      message.success(`Bulk upload completed: ${success}/${rows.length} created`)
+      // reload list
+      loadLeads(pagination.page)
+    } catch (e: any) {
+      message.error(e?.message || 'Failed to process CSV')
+    } finally {
+      setBulkUploading(false)
+      // reset file input to allow re-uploading same file if needed
+      setFileInputKey(k => k + 1)
+    }
+  }
 
   const openEdit = (lead: LeadDto) => {
     setEditing(lead);
@@ -264,6 +378,11 @@ const LeadTable = () => {
             Apply Filters
           </Button>
           <Button onClick={openCreate}>New Lead</Button>
+          <Button loading={bulkUploading} onClick={() => document.getElementById('lead-csv-input')?.click()}>Bulk Upload CSV</Button>
+          <input id="lead-csv-input" key={fileInputKey} type="file" accept=".csv" className="hidden" onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) handleBulkFile(f)
+          }} />
         </div>
       </div>
 
@@ -346,6 +465,36 @@ const LeadTable = () => {
             <TextArea rows={3} placeholder="Notes..." />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Bulk result modal */}
+      <Modal
+        title="Bulk Upload Result"
+        open={bulkModalOpen}
+        onCancel={() => setBulkModalOpen(false)}
+        footer={<Button onClick={() => setBulkModalOpen(false)}>Close</Button>}
+      >
+        {bulkResult ? (
+          <div>
+            <p><strong>Total rows:</strong> {bulkResult.total}</p>
+            <p><strong>Success:</strong> {bulkResult.success}</p>
+            <p><strong>Failed:</strong> {bulkResult.failed}</p>
+            {bulkResult.errors.length > 0 && (
+              <div className="mt-2 max-h-56 overflow-auto border rounded p-2 bg-gray-50">
+                {bulkResult.errors.map((e, idx) => (
+                  <div key={idx} className="text-red-600 text-sm">Row {e.row}: {e.error}</div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 text-xs text-gray-500">
+              Expected CSV headers: customer,status,priority,lastContact,nextAction,notes
+              <br/>
+              Dates can be in YYYY-MM-DD or any format parsable by the app; invalid dates will be ignored.
+            </div>
+          </div>
+        ) : (
+          <p>Processing...</p>
+        )}
       </Modal>
     </div>
   );

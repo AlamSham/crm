@@ -117,11 +117,15 @@ const MerchandiserLayout = () => {
           {/* Sidebar footer */}
           <div className="border-t border-gray-200 p-4">
             <div className="flex items-center">
-              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">MU</div>
+              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
+                {(((user as any)?.name || (user as any)?.email || 'U') as string).trim().charAt(0).toUpperCase()}
+              </div>
               {sidebarOpen && (
                 <div className="ml-3 overflow-hidden">
-                  <p className="text-sm font-medium text-gray-700 truncate">Merchandiser User</p>
-                  <p className="text-xs text-gray-500 truncate">merchandiser@example.com</p>
+                  <p className="text-sm font-medium text-gray-700 truncate">{(user as any)?.name || (user as any)?.email || 'User'}</p>
+                  {(user as any)?.email && (
+                    <p className="text-xs text-gray-500 truncate">{(user as any)?.email}</p>
+                  )}
                 </div>
               )}
             </div>

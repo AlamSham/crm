@@ -202,7 +202,7 @@ async function fetchSpamMails({ page = 1, limit = 10, search = "" }, configOverr
     const cfg = getEffectiveConfig(configOverride)
     // Check if email config is available
     if (!cfg.user || !cfg.password) {
-      console.log("Email config not available, using mock data for spam mails")
+
       let mockData = [...mockEmails]
 
       // Filter by search if needed

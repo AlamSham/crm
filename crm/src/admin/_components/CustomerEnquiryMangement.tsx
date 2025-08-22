@@ -5,6 +5,8 @@ import type { ColumnsType } from 'antd/es/table'
 import { useEnquiries } from '@/admin/_components/hooks/useEnquiries'
 import type { CustomerEnquiry } from '@/admin/_components/types/enquiry'
 // Removed email compose feature
+import ComposeEmail from '@/admin/_components/email/compose-email'
+import { EmailProvider } from '@/admin/_components/email/gmail-layout'
 
 const CustomerEnquiryManagement = () => {
   const {
@@ -24,6 +26,10 @@ const CustomerEnquiryManagement = () => {
   const [bulkUploading, setBulkUploading] = useState(false)
   // Local loading message key for AntD message API
   const [msgKey] = useState<string>('enquiry-bulk-upload')
+
+  // Email compose state
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [composePrefill, setComposePrefill] = useState<{ to?: string; subject?: string; text?: string }>({})
 
   useEffect(() => {
     fetch().catch(() => message.error('Failed to load enquiries'))
@@ -142,6 +148,7 @@ const CustomerEnquiryManagement = () => {
       render: (_, r) => {
         const items = [
           // Respond action removed per requirement
+          { key: 'email', icon: <MailOutlined />, label: 'Email' },
           { key: 'view', icon: <EyeOutlined />, label: 'View' },
           { key: 'edit', icon: <EditOutlined />, label: 'Edit' },
           {
@@ -178,6 +185,15 @@ const CustomerEnquiryManagement = () => {
           console.log('[Enquiry] action click', { key, id: r?._id, record: r })
           if (key === 'delete') {
             // Popconfirm inside label will handle the action
+            return
+          }
+          if (key === 'email') {
+            const to = r.email || ''
+            const subject = r.name ? `Regarding your enquiry, ${r.name}` : 'Regarding your enquiry'
+            const prods = Array.isArray(r.products) && r.products.length ? ` about ${r.products.join(', ')}` : ''
+            const text = `Hi ${r.name || ''},\n\nThanks for your enquiry${prods}.\n\n— ${((r as any).createdBy && ((r as any).createdBy.name || (r as any).createdBy.email)) || 'Team'}`
+            setComposePrefill({ to, subject, text })
+            setComposeOpen(true)
             return
           }
           // Respond action removed
@@ -379,7 +395,10 @@ const CustomerEnquiryManagement = () => {
         )}
       </Drawer>
 
-      {/* Email composer removed */}
+      {/* Email composer */}
+      <EmailProvider>
+        <ComposeEmail isOpen={composeOpen} onClose={() => setComposeOpen(false)} prefill={composePrefill} />
+      </EmailProvider>
     </Card>
   );
 };
